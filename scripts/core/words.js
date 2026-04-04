@@ -12,6 +12,43 @@ import { ZhuyinWordConverter, ZhuyinCharConverter, ZhuyinToQwerty } from '../dat
 
 	// Collection of alphabet characters.
 	global.alphabets = Array.from("abcdefghijklmnopqrstuvwxyz")
+	// --- 【通用模组引擎：自动化完形填空解析器】 ---
+	// 语法规则：将需要挖空的词汇用大括号 {} 包裹。引擎会自动为每一个 {} 生成独立的考题。
+	global.rawTextLibrary = [
+		"太阳病，头痛，发热，汗出，恶风，{桂枝汤}主之。",
+		"太阳病，项背强几几，无汗恶风，{葛根汤}主之。",
+		"太阳病，或已发热，或未发热，必恶寒，{体痛}，{呕逆}，脉阴阳俱紧者，名为{伤寒}。", // 包含3个考点，将自动衍生出3只不同的怪
+		"太阳病，发热，汗出，恶风，{脉缓}者，名为{中风}。"
+	];
+
+	global.parsedClozeDict = [];
+
+	// 物理级文本切片与重组算法
+	global.rawTextLibrary.forEach(text => {
+		let regex = /\{(.+?)\}/g;
+		let match;
+		let matches = [];
+		
+		// 提取所有标记点
+		while ((match = regex.exec(text)) !== null) {
+			matches.push(match[1]);
+		}
+
+		// 为每一个标记点生成专属变体
+		matches.forEach(targetWord => {
+			let questionStr = text;
+			matches.forEach(otherWord => {
+				if (otherWord === targetWord) {
+					// 靶向词汇替换为填空符
+					questionStr = questionStr.replace(`{${otherWord}}`, "[____]");
+				} else {
+					// 其他词汇褪去标记，恢复显示
+					questionStr = questionStr.replace(`{${otherWord}}`, otherWord);
+				}
+			});
+			global.parsedClozeDict.push({ answer: targetWord, question: questionStr });
+		});
+	});
 
 	// Weight for each button.
 	global.buttonWeightGame = [
@@ -288,12 +325,47 @@ import { ZhuyinWordConverter, ZhuyinCharConverter, ZhuyinToQwerty } from '../dat
 		return a.join('')
 	}
 
-	// Create surface and print hiragana on it.
-	global.createWordSurface = function(word, font)
+	// Create surface and print hiragana/chinese on it.
+	global.createWordSurface = function(word, font, question = null)
 	{
-		let surface = new Surface(font.widthOf(word), font.height)
-		font.drawText(surface, 0, 0, word, Color.White)
-		return surface
+		if (question) {
+			// 自动换行算法：每行 8 个字（可根据你的屏幕观感自行调整这个数字）
+			let lines = [];
+			let lineLength = 8;
+			for (let i = 0; i < question.length; i += lineLength) {
+				lines.push(question.slice(i, i + lineLength));
+			}
+
+			let qWidth = 0;
+			for (let l of lines) {
+				let lw = font.widthOf(l);
+				if (lw > qWidth) qWidth = lw;
+			}
+
+			let wWidth = font.widthOf(word);
+			let width = Math.max(qWidth, wWidth);
+			let height = font.height + 5 + (lines.length * font.height);
+
+			let surface = new Surface(width, height);
+
+			// 【绝对物理法则】：作答词汇必须死死钉在 (0,0) 原点！
+			// 因为引擎原版的高亮裁剪算法永远从 (0,0) 开始切。一旦偏离，就会出现“太枝汤”这样的拼接错字。
+			font.drawText(surface, 0, 0, word, Color.White);
+
+			// 将长经文以金色字体（RGB: 255, 204, 0）悬挂在作答区下方
+			let currentY = font.height + 5;
+			for (let l of lines) {
+				font.drawText(surface, 0, currentY, l, new Color(255, 204, 0));
+				currentY += font.height;
+			}
+
+			return surface;
+		} else {
+			// 回退逻辑（防崩溃兜底）
+			let surface = new Surface(font.widthOf(word), font.height);
+			font.drawText(surface, 0, 0, word, Color.White);
+			return surface;
+		}
 	}
 
 	// Helper function to get a word assigned.
@@ -332,25 +404,33 @@ import { ZhuyinWordConverter, ZhuyinCharConverter, ZhuyinToQwerty } from '../dat
 		if (!forceWord)
 		{
 			let attempts = 0
-			let word = ""
-			const words = getWordsOfLength(length)
-			do { word = Random.sample(words) }
+			
+			// 绝对供给：无视原版的难度长度曲线，直接强制注入我们的完形填空字典
+			let dict = global.parsedClozeDict;
+
+			do {
+				let sample = Random.sample(dict)
+				object.word = sample.answer
+				object.shanghanQuestion = sample.question
+			}
 			while (
-				(
-					anyPartialMatches((hasSecondaryText ? word[0] : word).toLowerCase(), currentWords)
-					|| (isGameSimplifiedChinese && allowDoublePinyin != null && word.length == 1)
-				)
+				anyPartialMatches(object.word.toLowerCase(), currentWords)
 				&& (attempts++ < maxAttempts)
 			)
-			object.word = (hasSecondaryText && Array.isArray(word) ? word[0] : word).toLowerCase()
-			object.secondaryText = hasSecondaryText && Array.isArray(word) ? word[1] : null
+
+			// 强行清空原版副标题，物理剥离原版拼音系统，避免红屏崩溃
+			object.secondaryText = null
 		}
-		else
+		else {
 			object.word = forceWord
+			object.secondaryText = null
+			object.shanghanQuestion = null
+		}
 
 		// Create word surfaces for rendering partially matched East Asian characters.
+		// 【注意这里】：我们将经文(shanghanQuestion)作为第三个参数强行塞给了贴图生成器！
 		if (isEastAsianPrimaryDisplay)
-			object.wordSurface = createWordSurface(object.word, menu ? titleEastAsian : regularEastAsianLarge)
+			object.wordSurface = createWordSurface(object.word, menu ? titleEastAsian : regularEastAsianLarge, object.shanghanQuestion)
 
 		// Get variants.
 		object.wordVariants = generateVariants(object.word)

@@ -143,7 +143,8 @@ export const renderWord = function(obj, stalkerCoverWord)
 			obj.cypherQuicktimeString
 		word = getQuickTimeString(obj.cyphered ? cypherQuicktimeString : obj.quicktime)
 		font = quicktimeFont
-		printToScreen(
+		/*伤寒论强制阻断拼音渲染*/
+		/*printToScreen(
 			obj,
 			word,
 			obj.numMatchingQuicktimeSymbols,
@@ -152,6 +153,7 @@ export const renderWord = function(obj, stalkerCoverWord)
 			pos.y - obj.wordOffset - quicktimeFont.height,
 			stalkerCoverWord
 		)
+			*/
 	}
 
 	// Else, print word on screen.
@@ -240,17 +242,53 @@ export const renderWord = function(obj, stalkerCoverWord)
 				midGray.fadeTo(obj.omenOpacity() * .5 * ui.inGameWordOpacity * obj.wordRegenPercentage * obj.overlapOpacity)
 			)
 
-		// Print to screen.
-		printToScreen(
-			obj,
-			word,
-			matchingLetters,
-			font,
-			pos.x - font.widthOf(word) / 2,
-			pos.y - obj.wordOffset - font.height,
-			stalkerCoverWord
-		)
-	}
+
+		// --- 【伤寒论核心干预：原生级视觉复刻与多行渲染】 ---
+		if (obj.shanghanQuestion && !stalkerCoverWord && !obj.cyphered) {
+			// 1. 窃取原版透明度与颜色算法 (原版未匹配的文字是 midGray 并非纯白)
+			let opacity = obj.omenOpacity() * ui.inGameWordOpacity * obj.overlapOpacity;
+			let nativeColor = midGray.fadeTo(0.5 * opacity); 
+
+			// 2. 窃取原版“打字机浮现”动画逻辑
+			// 这会让经文在怪物刚刷出来时，像原版汉字一样逐字浮现，而不是生硬地突然贴在屏幕上
+			let renderedCount = Math.floor(obj.shanghanQuestion.length * obj.wordRegenPercentage);
+			let visibleQuestion = obj.shanghanQuestion.slice(0, renderedCount);
+
+			// 3. 多行自动分割
+			let lines = [];
+			let lineLength = 8; // 经文每行的字数
+			for (let i = 0; i < visibleQuestion.length; i += lineLength) {
+				lines.push(visibleQuestion.slice(i, i + lineLength));
+			}
+
+			// 4. 坐标锚定：直接接管原本汉字所在的 Y 轴位置，向下展开
+			let currentY = pos.y - obj.wordOffset - font.height;
+
+			// 执行原生级绘制
+			for (let l of lines) {
+				font.drawText(
+					Surface.Screen,
+					pos.x - font.widthOf(l) / 2,
+					currentY,
+					l,
+					nativeColor
+				);
+				currentY += font.height;
+			}
+		} else {
+			// 原版逻辑兜底
+			printToScreen(
+				obj,
+				word,
+				matchingLetters,
+				font,
+				pos.x - font.widthOf(word) / 2,
+				pos.y - obj.wordOffset - font.height,
+				stalkerCoverWord
+			)
+		}
+	} // <--- 确保保留这个闭合大括号！
+
 	
 	// Draw box and power of 2 if double word.
 	if (obj.doubleWord)
