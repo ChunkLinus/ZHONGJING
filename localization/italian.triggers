@@ -1,0 +1,46 @@
+{
+	"italian": {
+		"Spectre": [
+			"a",
+			"e",
+			"o"
+		],
+		"Hunter": [
+			"i",
+			"o",
+			"u"
+		],
+		"Tesla": [
+			"b",
+			"c",
+			"d",
+			"e"
+		],
+		"Blade": [
+			"l",
+			"m",
+			"n",
+			"p"
+		],
+		"Minefield": [
+			"f",
+			"g",
+			"i",
+			"r"
+		],
+		"Orbiter": [
+			"n",
+			"o",
+			"p",
+			"q"
+		],
+		"Extra_1": [
+			"s",
+			"t"
+		],
+		"Extra_2": [
+			"v",
+			"z"
+		]
+	}
+}

@@ -1,0 +1,36 @@
+{
+	"koreana": {
+		"Spectre": [
+			"k",
+			"h",
+			"o"
+		],
+		"Hunter": [
+			"j",
+			"n",
+			"p"
+		],
+		"Tesla": [
+			"r",
+			"s"
+		],
+		"Blade": [
+			"t",
+			"d"
+		],
+		"Minefield": [
+			"a",
+			"q"
+		],
+		"Orbiter": [
+			"w",
+			"c"
+		],
+		"Extra_1": [
+			"v"
+		],
+		"Extra_2": [
+			"g"
+		]
+	}
+}

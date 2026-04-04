@@ -1,0 +1,46 @@
+{
+	"finnish": {
+		"Spectre": [
+			"a",
+			"e",
+			"o"
+		],
+		"Hunter": [
+			"i",
+			"o",
+			"u"
+		],
+		"Tesla": [
+			"b",
+			"k",
+			"d",
+			"e"
+		],
+		"Blade": [
+			"j",
+			"c",
+			"l",
+			"m"
+		],
+		"Minefield": [
+			"v",
+			"g",
+			"h",
+			"i"
+		],
+		"Orbiter": [
+			"n",
+			"o",
+			"p",
+			"q"
+		],
+		"Extra_1": [
+			"y",
+			"t"
+		],
+		"Extra_2": [
+			"r",
+			"s"
+		]
+	}
+}

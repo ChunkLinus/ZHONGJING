@@ -1,0 +1,46 @@
+{
+	"catalan": {
+		"Spectre": [
+			"a",
+			"e",
+			"o"
+		],
+		"Hunter": [
+			"i",
+			"o",
+			"u"
+		],
+		"Tesla": [
+			"b",
+			"c",
+			"d",
+			"e"
+		],
+		"Blade": [
+			"j",
+			"r",
+			"l",
+			"m"
+		],
+		"Minefield": [
+			"f",
+			"g",
+			"h",
+			"i"
+		],
+		"Orbiter": [
+			"n",
+			"o",
+			"p",
+			"q"
+		],
+		"Extra_1": [
+			"s",
+			"t"
+		],
+		"Extra_2": [
+			"v",
+			"x"
+		]
+	}
+}

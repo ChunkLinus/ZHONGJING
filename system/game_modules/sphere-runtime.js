@@ -1,0 +1,73 @@
+/**
+ *  Sphere: the JavaScript game platform
+ *  Copyright (c) 2015-2022, Fat Cerberus
+ *  All rights reserved.
+ *
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions are met:
+ *
+ *  * Redistributions of source code must retain the above copyright notice,
+ *    this list of conditions and the following disclaimer.
+ *
+ *  * Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the documentation
+ *    and/or other materials provided with the distribution.
+ *
+ *  * Neither the name of Spherical nor the names of its contributors may be
+ *    used to endorse or promote products derived from this software without
+ *    specific prior written permission.
+ *
+ *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ *  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ *  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ *  ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ *  LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ *  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ *  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ *  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ *  CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ *  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ *  POSSIBILITY OF SUCH DAMAGE.
+**/
+
+export default
+class RT
+{
+	static get Version() { return 0; }
+}
+
+export { default as Console } from 'console';
+export { default as FocusTarget } from 'focus-target';
+export { default as Music } from 'music';
+export { default as Pact } from 'pact';
+export { default as Prim } from 'prim';
+export { default as Scene } from 'scene';
+export { default as Task, default as Thread } from 'task';
+export { default as Tween, Easing } from 'tween';
+export { Node, Text } from 'node';
+
+// Sphere Runtime shared modules
+export { default as DataStream } from 'data-stream';
+export { default as from, Query } from 'from';
+export { default as Logger } from 'logger';
+export { default as Random } from 'random';
+
+// Matter.js and Vector classes.
+import { decomp } from 'decomp'; global.decomp = decomp;
+import { Matter } from 'matter';
+global.Vector = Matter.Vector;
+Vector.distance = function(v1, v2) { return Math.sqrt(Math.pow(v2.x - v1.x, 2) + Math.pow(v2.y - v1.y, 2)) }
+export { Matter };
+
+// Yoga layout engine.
+export { Yoga } from 'yoga';
+
+// Extensions to built-in types
+import hexRGB from 'hexRGB';
+Color.fromHex = function(hex) {
+	const rgb = Object.values(hexRGB(hex)).map(num => Math.round(num / 255 * 100) / 100)
+	return new Color(rgb[0], rgb[1], rgb[2])
+}
+DirectoryStream.fromURL = function(url) {
+	return Promise.resolve(new DirectoryStream(url))
+}
