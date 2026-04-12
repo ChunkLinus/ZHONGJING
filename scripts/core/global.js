@@ -42,6 +42,10 @@ import { isRussian, isUkrainian } from '../data/cyrillicQwertyConversion.js'
 	global.outOfLoot = false
 	global.IMEActiveWarningTrigger = false
 
+	// --- 【伤寒论干预：全局刷怪时间轴倍率】 ---
+	// 数值越大，冷却时间越长，怪物出得越慢。初始设为 3.0 倍。
+	global.shanghanSpawnMultiplier = 3.0
+
 	// Enums.
 	
 		// Screens.

@@ -198,7 +198,8 @@ export const renderWord = function(obj, stalkerCoverWord)
 		
 		// Print pinyin on top of words if Simplified Chinese.
 		let chinesePhoneticsDisplayHeight = 0
-		if (!obj.cyphered && isGameSimplifiedChinese && obj.displayedPinyin)
+		if (!obj.cyphered && isGameSimplifiedChinese && obj.displayedPinyin && false)
+			//条件加了&&flase永不触发
 		{
 			chinesePhoneticsDisplayHeight = typingFontMedium.height
 			printToScreen(
@@ -254,11 +255,15 @@ export const renderWord = function(obj, stalkerCoverWord)
 			let renderedCount = Math.floor(obj.shanghanQuestion.length * obj.wordRegenPercentage);
 			let visibleQuestion = obj.shanghanQuestion.slice(0, renderedCount);
 
-			// 3. 多行自动分割
+			// 3. 动态双行宽屏排版
 			let lines = [];
-			let lineLength = 8; // 经文每行的字数
-			for (let i = 0; i < visibleQuestion.length; i += lineLength) {
-				lines.push(visibleQuestion.slice(i, i + lineLength));
+			// 设定阈值：如果当前显示的字数在 16 字以内，保持单行直出；超过则从中间切断，最多两行。
+			if (visibleQuestion.length <= 16) {
+				lines.push(visibleQuestion);
+			} else {
+				let splitPoint = Math.ceil(visibleQuestion.length / 2);
+				lines.push(visibleQuestion.slice(0, splitPoint));
+				lines.push(visibleQuestion.slice(splitPoint));
 			}
 
 			// 4. 坐标锚定：直接接管原本汉字所在的 Y 轴位置，向下展开
@@ -599,14 +604,36 @@ export class Enemy extends Entity
 	{
 		if (this.active && !isPaused())
 		{
-			// Fire update function.
-			if (!powerup_freeze &&
+			// --- 【伤寒论核心：个体动能劫持】 ---
+			// 1. 记录它出生时的原始基准速度
+			if (this.shanghanBaseSpeed === undefined) {
+				this.shanghanBaseSpeed = this.currentSpeed || 0;
+			}
+
+			// 2. 状态判定
+			let isPunished = (global.shanghanTimeScale > 1); // 全局是否处于惩罚加速期
+			let isLocked = (this.numMatchingLetters > 0);    // 当前这只怪是否正被你锁定
+
+			// 3. 动能分配
+			if (isLocked && !isPunished) {
+				// 专注锁定且未打错：死死钉在原地
+				this.currentSpeed = 0;
+				if (this.body) Matter.Body.setVelocity(this.body, {x:0, y:0}); 
+			} else {
+				// 未锁定，或触发了错字惩罚：适用全局倍率（降速泥沼 或 2.5倍速狂飙）
+				this.currentSpeed = this.shanghanBaseSpeed * (global.shanghanTimeScale !== undefined ? global.shanghanTimeScale : 1);
+			}
+
+			// Fire update function. (仅被钉住时跳过物理刷新，防止冲突)
+			if (!(isLocked && !isPunished) && 
+				!powerup_freeze &&
 				!this.statusEffects.some(status => status[0] == "coldStatus") &&
 				!(	this.isChild &&
 					this.parent &&
 					this.parent.statusEffects.some(status => status[0] == "coldStatus"))
 			)
 				this.update()
+			// --- 【动能劫持结束】 ---
 
 			// Heat Ray Cooldown.
 			if (this.heatRayCooldown > 0) this.heatRayCooldown--

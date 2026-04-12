@@ -388,11 +388,26 @@ export class Control extends Task
 										keyboardArrows = true
 										ui.updateButtonLabels()
 									}
+
+									// --- 【伤寒论干预：方向键硬连接物理油门】 ---
+									// 仅在战斗进行中（无UI遮挡）时，方向键才作为油门
+									if (this.gameRunning()) {
+										if (lastKey === Key.Up) { 
+											// 按【上方向键】：推背加速（倍率减半）
+											global.shanghanSpawnMultiplier = Math.max(0.01, global.shanghanSpawnMultiplier * 0.5);
+											console.log("【战术雷达】加速狂暴！倍率降至: " + global.shanghanSpawnMultiplier);
+										} else if (lastKey === Key.Down) { 
+											// 按【下方向键】：重踩刹车（倍率翻倍）
+											global.shanghanSpawnMultiplier *= 2.0;
+											console.log("【战术雷达】时空减速！倍率升至: " + global.shanghanSpawnMultiplier);
+										}
+									}
+									// --------------------------------------------
+
 									ui.weaponDetail.keyboardArrows(lastKey)
 									ui.pauseMenu.keyboardArrows(lastKey)
 									ui.summaryScreen.keyboardArrows(lastKey)
 									break
-
 								case Key.Tab:
 									this.triggerWeaponDetailTab()
 									break
@@ -846,6 +861,18 @@ export class Control extends Task
 		// Use the right collection.
 		let currentWords = inUpgradeMenu ? wordsInUseMenu : wordsInUse
 
+		// --- 【伤寒论核心干预：绝对近防火控雷达重排】 ---
+		// 在处理任何按键输入之前，强制将场上所有的词汇目标按物理距离(离防线的远近)进行升序重排。
+		// 这不仅解决了两个“桂枝汤”打远端的问题，还会让所有共享首字母(比如 'g')的判定严格遵循“先近后远”。
+		if (!inUpgradeMenu && currentWords === wordsInUse) {
+			currentWords.sort((a, b) => {
+				let distA = (a[2] && a[2].getPosition) ? distanceBetween(a[2].getPosition(), screenCenter) : Infinity;
+				let distB = (b[2] && b[2].getPosition) ? distanceBetween(b[2].getPosition(), screenCenter) : Infinity;
+				return distA - distB;
+			});
+		}
+		// ------------------------------------------------
+
 		// If input is from keyboard.
 		let isMisType
 		if (typeof char === 'string' || char instanceof String)
@@ -1097,6 +1124,17 @@ export class Control extends Task
 	{
 		// Use the right collection.
 		let currentWords = cyphered ? cyphersInUse : inUpgradeMenu ? wordsInUseMenu : wordsInUse
+
+		// --- 【伤寒论核心干预：结算级近防保险】 ---
+		// 确保在执行击杀结算 (.find) 之前，数组依然是按物理距离严格排序的，防止多目标同名时的击杀错位。
+		if (!inUpgradeMenu && currentWords === wordsInUse) {
+			currentWords.sort((a, b) => {
+				let distA = (a[2] && a[2].getPosition) ? distanceBetween(a[2].getPosition(), screenCenter) : Infinity;
+				let distB = (b[2] && b[2].getPosition) ? distanceBetween(b[2].getPosition(), screenCenter) : Infinity;
+				return distA - distB;
+			});
+		}
+		// ------------------------------------------
 
 		Keylog = "************"
 		Joylog.fill(null)
