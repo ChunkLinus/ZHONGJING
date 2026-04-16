@@ -14,7 +14,8 @@ export function LoadAll()
 		loadBGMSets(),
 		loadGame(),
 		loadShaders(),
-		checkModsFolder()
+		checkModsFolder(),
+		global.loadExternalDictionary() // <--- 【伤寒论核心：在引擎启动流中注入外部模组】
 	])
 }
 

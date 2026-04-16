@@ -309,7 +309,7 @@ export class Spawner extends Task
 		} else if (isFocused) {
 			global.shanghanTimeScale = 0.15; // 专注状态：其他怪物降速至 15% (泥沼漫步)
 		} else {
-			global.shanghanTimeScale = 1.0; // 游荡状态：正常流速
+			global.shanghanTimeScale = 0.4; // 游荡状态：正常流速
 		}
 		// --- 【系统广播结束】 ---
 
@@ -511,14 +511,13 @@ export class Spawner extends Task
 			// Set next cooldown.
 			this.lastSpawn = this.currentFrame
 			
-			// --- 【伤寒论干预：应用全局降速倍率】 ---
+			// 【伤寒论核心：静态暴兵降速】
+			// 这里的 3.0 是冷却倍率。数值越大，出怪越慢。你可以根据体感将其改为 4.0 或 5.0。
 			this.currentCooldown = (20 + Math.floor(
 				(this.existingThreat / threatBudget)
 				* this.maxCooldown
 				* this.sineFactor(this.currentFrame)
-			)) * (global.shanghanSpawnMultiplier !== undefined ? global.shanghanSpawnMultiplier : 1);
-			// ----------------------------------------
-			
+			)) * 3.0;
 			this.lastFiveCooldowns.shift()
 			this.lastFiveCooldowns.push(this.currentCooldown / 60)
 		}

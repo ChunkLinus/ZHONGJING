@@ -605,22 +605,19 @@ export class Enemy extends Entity
 		if (this.active && !isPaused())
 		{
 			// --- 【伤寒论核心：个体动能劫持】 ---
-			// 1. 记录它出生时的原始基准速度
 			if (this.shanghanBaseSpeed === undefined) {
 				this.shanghanBaseSpeed = this.currentSpeed || 0;
 			}
 
-			// 2. 状态判定
-			let isPunished = (global.shanghanTimeScale > 1); // 全局是否处于惩罚加速期
-			let isLocked = (this.numMatchingLetters > 0);    // 当前这只怪是否正被你锁定
+			let isPunished = (global.shanghanTimeScale > 1);
+			let isLocked = (this.numMatchingLetters > 0);
 
-			// 3. 动能分配
 			if (isLocked && !isPunished) {
 				// 专注锁定且未打错：死死钉在原地
 				this.currentSpeed = 0;
 				if (this.body) Matter.Body.setVelocity(this.body, {x:0, y:0}); 
 			} else {
-				// 未锁定，或触发了错字惩罚：适用全局倍率（降速泥沼 或 2.5倍速狂飙）
+				// 未锁定，或触发了错字惩罚：适用全局倍率
 				this.currentSpeed = this.shanghanBaseSpeed * (global.shanghanTimeScale !== undefined ? global.shanghanTimeScale : 1);
 			}
 

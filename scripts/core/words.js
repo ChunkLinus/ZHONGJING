@@ -12,43 +12,61 @@ import { ZhuyinWordConverter, ZhuyinCharConverter, ZhuyinToQwerty } from '../dat
 
 	// Collection of alphabet characters.
 	global.alphabets = Array.from("abcdefghijklmnopqrstuvwxyz")
-	// --- 【通用模组引擎：自动化完形填空解析器】 ---
-	// 语法规则：将需要挖空的词汇用大括号 {} 包裹。引擎会自动为每一个 {} 生成独立的考题。
-	global.rawTextLibrary = [
-		"太阳病，头痛，发热，汗出，恶风，{桂枝汤}主之。",
-		"太阳病，项背强几几，无汗恶风，{葛根汤}主之。",
-		"太阳病，或已发热，或未发热，必恶寒，{体痛}，{呕逆}，脉阴阳俱紧者，名为{伤寒}。", // 包含3个考点，将自动衍生出3只不同的怪
-		"太阳病，发热，汗出，恶风，{脉缓}者，名为{中风}。"
-	];
-
+	// --- 【通用模组引擎：外部词库加载与解析器】 ---
 	global.parsedClozeDict = [];
 
-	// 物理级文本切片与重组算法
-	global.rawTextLibrary.forEach(text => {
-		let regex = /\{(.+?)\}/g;
-		let match;
-		let matches = [];
-		
-		// 提取所有标记点
-		while ((match = regex.exec(text)) !== null) {
-			matches.push(match[1]);
-		}
+	global.parseClozeDictionary = function(rawArray) {
+		global.parsedClozeDict = [];
+		rawArray.forEach(text => {
+			let regex = /\{(.+?)\}/g;
+			let match;
+			let matches = [];
 
-		// 为每一个标记点生成专属变体
-		matches.forEach(targetWord => {
-			let questionStr = text;
-			matches.forEach(otherWord => {
-				if (otherWord === targetWord) {
-					// 靶向词汇替换为填空符
-					questionStr = questionStr.replace(`{${otherWord}}`, "[____]");
-				} else {
-					// 其他词汇褪去标记，恢复显示
-					questionStr = questionStr.replace(`{${otherWord}}`, otherWord);
-				}
+			// 提取所有标记点
+			while ((match = regex.exec(text)) !== null) {
+				matches.push(match[1]);
+			}
+
+			// 为每一个标记点生成专属变体
+			matches.forEach(targetWord => {
+				let questionStr = text;
+				matches.forEach(otherWord => {
+					if (otherWord === targetWord) {
+						questionStr = questionStr.replace(`{${otherWord}}`, "[____]");
+					} else {
+						questionStr = questionStr.replace(`{${otherWord}}`, otherWord);
+					}
+				});
+				global.parsedClozeDict.push({ answer: targetWord, question: questionStr });
 			});
-			global.parsedClozeDict.push({ answer: targetWord, question: questionStr });
 		});
-	});
+	};
+
+	global.loadExternalDictionary = async function() {
+		let dictPath = "~/mods/shanghan_lun.json";
+		if (await File.exists(dictPath)) {
+			// 读取外部题库
+			let content = await File.load(dictPath);
+			let rawArray = JSON.parse(content);
+			global.parseClozeDictionary(rawArray);
+			console.log("【模组引擎】成功挂载外部题库: " + dictPath);
+		} else {
+			// 首次运行，强制生成默认 JSON 模板
+			let defaultDict = [
+				"太阳病，头痛，发热，汗出，恶风，{桂枝汤}主之。",
+				"太阳病，项背强几几，无汗恶风，{葛根汤}主之。",
+				"太阳病，或已发热，或未发热，必恶寒，{体痛}，{呕逆}，脉阴阳俱紧者，名为{伤寒}。",
+				"太阳病，发热，汗出，恶风，{脉缓}者，名为{中风}。"
+			];
+			if (!FS.directoryExists("~/mods/")) {
+				FS.createDirectory("~/mods/");
+			}
+			await File.save(dictPath, JSON.stringify(defaultDict, null, "\t"));
+			global.parseClozeDictionary(defaultDict);
+			console.log("【模组引擎】已生成默认模板题库: " + dictPath);
+		}
+	};
+	// ---------------------------------------------
 
 	// Weight for each button.
 	global.buttonWeightGame = [

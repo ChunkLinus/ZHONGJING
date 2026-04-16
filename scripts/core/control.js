@@ -388,22 +388,6 @@ export class Control extends Task
 										keyboardArrows = true
 										ui.updateButtonLabels()
 									}
-
-									// --- 【伤寒论干预：方向键硬连接物理油门】 ---
-									// 仅在战斗进行中（无UI遮挡）时，方向键才作为油门
-									if (this.gameRunning()) {
-										if (lastKey === Key.Up) { 
-											// 按【上方向键】：推背加速（倍率减半）
-											global.shanghanSpawnMultiplier = Math.max(0.01, global.shanghanSpawnMultiplier * 0.5);
-											console.log("【战术雷达】加速狂暴！倍率降至: " + global.shanghanSpawnMultiplier);
-										} else if (lastKey === Key.Down) { 
-											// 按【下方向键】：重踩刹车（倍率翻倍）
-											global.shanghanSpawnMultiplier *= 2.0;
-											console.log("【战术雷达】时空减速！倍率升至: " + global.shanghanSpawnMultiplier);
-										}
-									}
-									// --------------------------------------------
-
 									ui.weaponDetail.keyboardArrows(lastKey)
 									ui.pauseMenu.keyboardArrows(lastKey)
 									ui.summaryScreen.keyboardArrows(lastKey)
