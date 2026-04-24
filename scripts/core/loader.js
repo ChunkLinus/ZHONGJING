@@ -1,6 +1,6 @@
 import { augmentsList, augmentSteamStatNames } from '../data/augmentsList.js'
 import { mangleData, demangle } from './storage.js'
-import { reloadMods, modOptions } from './workshop.js'
+//import { reloadMods, modOptions } from './workshop.js'
 
 // Load all.
 export function LoadAll()
@@ -14,7 +14,7 @@ export function LoadAll()
 		loadBGMSets(),
 		loadGame(),
 		loadShaders(),
-		checkModsFolder(),
+		//checkModsFolder(),
 		global.loadExternalDictionary() // <--- 【伤寒论核心：在引擎启动流中注入外部模组】
 	])
 }
@@ -187,8 +187,8 @@ async function loadLocalizations()
 			catch { console.log("Failed to create user localization directory.") }
 		}
 		await loadLocalizationFiles(userLocPath)
-		await modOptions.load()
-		await reloadMods()
+		//await modOptions.load()
+		//await reloadMods()
 	}
 }
 
@@ -229,6 +229,12 @@ async function loadGame()
 
 	// Check for old save
 	const fileExists = await loadSaveFromFile(generateSaveId())
+
+	// 【伤寒论干预：强制配给无限军费】
+	// 无论本地是新兵的初始空档，还是已经存过盘的旧档，在移交前端前一律执行物理覆写
+	save.coins = 9999999;
+	save.coinsTotal = 9999999;
+
 	if (fileExists) return
 
 	// Just use default

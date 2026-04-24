@@ -20,7 +20,7 @@ import { Modifiers } from './modifiers.js'
 import { GlyphicaConsole } from './console.js'
 import { platform_overrides } from './platform_overrides.js'
 import { Callback } from './callback.js'
-import { itemInstalled } from './workshop.js'
+//import { itemInstalled } from './workshop.js'
 
 export default class MyGame extends Task
 {	
@@ -35,8 +35,6 @@ export default class MyGame extends Task
 		if (steamEnabled)
 		{
 			SteamAPI.Init()
-
-			// Grab current stats.
 			ISteamUserStats.RequestCurrentStats()
 			steamStats.lootCollected = ISteamUserStats.GetStatInt32("lootCollected").pData
 			steamStats.wordsTyped = ISteamUserStats.GetStatInt32("wordsTyped").pData
@@ -97,9 +95,9 @@ export default class MyGame extends Task
 				window.addEventListener('resize', this.resizeEvent.bind(this))
 			}
 
-			global.callback.addListener("ItemInstalled", (item) => {
-				itemInstalled(item)
-			})
+			//global.callback.addListener("ItemInstalled", (item) => {
+			//	itemInstalled(item)
+			//})
 		})
 	}
 

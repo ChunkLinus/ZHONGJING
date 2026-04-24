@@ -22,7 +22,7 @@ import { isRussian, isUkrainian } from '../data/cyrillicQwertyConversion.js'
 
 	// Settings
 	global.isOozaru = Sphere.Engine.split(" ")[0] == "neoSphere" ? false : true
-	global.steamEnabled = !isOozaru
+	global.steamEnabled = false
 	global.wpmSimulator = 0
 	global.missionMode = true
 	global.visualTheme = "theme_light_mode"
