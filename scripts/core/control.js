@@ -869,7 +869,7 @@ export class Control extends Task
 			}
 
 			// Append character to keylogger.
-			Keylog = Keylog.slice(-11) + char
+			Keylog = Keylog.slice(-100) + char
 
 			// Check for mistype and matching characters for each word.
 			isMisType = true;

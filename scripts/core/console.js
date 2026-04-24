@@ -944,10 +944,10 @@ export class GlyphicaConsole extends Console
 		super(options)
 
 		// Cheats.
-		global.immortal = true
+		global.immortal = false
 		global.autoLevel = false
-		global.autoLoot = true
-		global.spawnerDebug = true
+		global.autoLoot = false
+		global.spawnerDebug = false
 		this.defineObject('cheat', null, cheatObject)
 		this.defineObject('c', null, cheatObject)
 		this.defineObject('profile', null, profile)

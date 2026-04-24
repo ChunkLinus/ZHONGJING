@@ -415,7 +415,10 @@ export class Spawner extends Task
 				omenFactor = .1
 		}
 		let increment = .0045 * omenFactor * timeFactor
-		return Math.floor(30 + increment)
+		
+		// 【伤寒论核心干预：粉碎底层容量枷锁】
+		// 将原本的容量返回值强行放大 10 倍（甚至 20 倍）
+		return Math.floor(30 + increment) * 10; 
 	}
 
 	getSpecialsBudget(timeFactor)
@@ -511,13 +514,12 @@ export class Spawner extends Task
 			// Set next cooldown.
 			this.lastSpawn = this.currentFrame
 			
-			// 【伤寒论核心：静态暴兵降速】
-			// 这里的 3.0 是冷却倍率。数值越大，出怪越慢。你可以根据体感将其改为 4.0 或 5.0。
+			// 将这里写死的 3.0 替换为我们的全局变量
 			this.currentCooldown = (20 + Math.floor(
 				(this.existingThreat / threatBudget)
 				* this.maxCooldown
 				* this.sineFactor(this.currentFrame)
-			)) * 3.0;
+			)) * global.shanghanSpawnMultiplier; // <--- 【接入全局旋钮】
 			this.lastFiveCooldowns.shift()
 			this.lastFiveCooldowns.push(this.currentCooldown / 60)
 		}
