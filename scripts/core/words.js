@@ -13,21 +13,19 @@ import { ZhuyinWordConverter, ZhuyinCharConverter, ZhuyinToQwerty } from '../dat
 	// Collection of alphabet characters.
 	global.alphabets = Array.from("abcdefghijklmnopqrstuvwxyz")
 	// --- 【通用模组引擎：外部词库加载与解析器】 ---
-	global.parsedClozeDict = [];
+	global.moduleDatabase = {}; // <--- 新增：多模块全局矩阵
 
 	global.parseClozeDictionary = function(rawArray) {
-		global.parsedClozeDict = [];
+		let parsedDict = []; // 改为局部变量
 		rawArray.forEach(text => {
 			let regex = /\{(.+?)\}/g;
 			let match;
 			let matches = [];
 
-			// 提取所有标记点
 			while ((match = regex.exec(text)) !== null) {
 				matches.push(match[1]);
 			}
 
-			// 为每一个标记点生成专属变体
 			matches.forEach(targetWord => {
 				let questionStr = text;
 				matches.forEach(otherWord => {
@@ -37,33 +35,55 @@ import { ZhuyinWordConverter, ZhuyinCharConverter, ZhuyinToQwerty } from '../dat
 						questionStr = questionStr.replace(`{${otherWord}}`, otherWord);
 					}
 				});
-				global.parsedClozeDict.push({ answer: targetWord, question: questionStr });
+				parsedDict.push({ answer: targetWord, question: questionStr });
 			});
 		});
+		return parsedDict; // 返回解析后的阵列
 	};
+	// --- 【伤寒论 3.0：全自动雷达扫描引擎】 ---
+	global.availableModules = []; 
+	global.moduleDatabase = {};  
 
 	global.loadExternalDictionary = async function() {
-		let dictPath = "~/mods/shanghan_lun.json";
-		if (await File.exists(dictPath)) {
-			// 读取外部题库
-			let content = await File.load(dictPath);
-			let rawArray = JSON.parse(content);
-			global.parseClozeDictionary(rawArray);
-			console.log("【模组引擎】成功挂载外部题库: " + dictPath);
-		} else {
-			// 首次运行，强制生成默认 JSON 模板
-			let defaultDict = [
-				"太阳病，头痛，发热，汗出，恶风，{桂枝汤}主之。",
-				"太阳病，项背强几几，无汗恶风，{葛根汤}主之。",
-				"太阳病，或已发热，或未发热，必恶寒，{体痛}，{呕逆}，脉阴阳俱紧者，名为{伤寒}。",
-				"太阳病，发热，汗出，恶风，{脉缓}者，名为{中风}。"
-			];
-			if (!FS.directoryExists("~/mods/")) {
-				FS.createDirectory("~/mods/");
+		global.availableModules = [];
+		let modsPath = "@/mods/";
+
+		try {
+			// 启动底层物理探针，遍历 mods 目录下的所有文件
+			let modsFolder = await DirectoryStream.fromURL(modsPath);
+			
+			while (true) {
+				let file = modsFolder.next();
+				if (file.done) break; // 扫描完毕，退出循环
+
+				// 过滤器：仅捕获 .json 后缀的数据包
+				if (file.value.extension === ".json") {
+					let content = await File.load(file.value.fullPath);
+					let rawArray = JSON.parse(content);
+					
+					// 剥离后缀，使用纯文件名作为 UI 显示文本和模块 ID
+					let modName = file.value.fileName.split(".")[0];
+					
+					// 将解析结果注入矩阵
+					global.moduleDatabase[modName] = global.parseClozeDictionary(rawArray);
+					
+					// 动态向 UI 注册新按键
+					global.availableModules.push({
+						lang: modName,
+						text: modName,
+					});
+					console.log(`【雷达扫描】自动捕获并挂载模组: ${modName}`);
+				}
 			}
-			await File.save(dictPath, JSON.stringify(defaultDict, null, "\t"));
-			global.parseClozeDictionary(defaultDict);
-			console.log("【模组引擎】已生成默认模板题库: " + dictPath);
+		} catch (e) {
+			console.log(`【战术预警】物理目录 ${modsPath} 寻址失败或尚未创建。`);
+		}
+
+		// 绝对防御机制（防崩兜底）
+		if (global.availableModules.length === 0) {
+			let defaultDict = ["未检测到外部 JSON，{请检查} mods 文件夹。", "当前运行于{内存兜底模式}。"];
+			global.moduleDatabase["fallback_sys"] = global.parseClozeDictionary(defaultDict);
+			global.availableModules.push({ lang: "fallback_sys", text: "系统兜底模板"})
 		}
 	};
 	// ---------------------------------------------
@@ -423,8 +443,17 @@ import { ZhuyinWordConverter, ZhuyinCharConverter, ZhuyinToQwerty } from '../dat
 		{
 			let attempts = 0
 			
-			// 绝对供给：无视原版的难度长度曲线，直接强制注入我们的完形填空字典
-			let dict = global.parsedClozeDict;
+			// 【伤寒论核心：全自动动态弹匣切换】
+			let currentModuleId = currentGameLanguage;
+			let dict = global.moduleDatabase[currentModuleId];
+
+			// 终极容错：如果当前模块失效或为初始空档，强制抓取矩阵中的第一个可用模块
+			if (!dict || dict.length === 0) {
+				let availableKeys = Object.keys(global.moduleDatabase);
+				if (availableKeys.length > 0) {
+					dict = global.moduleDatabase[availableKeys[0]];
+				}
+			}
 
 			do {
 				let sample = Random.sample(dict)
@@ -439,12 +468,6 @@ import { ZhuyinWordConverter, ZhuyinCharConverter, ZhuyinToQwerty } from '../dat
 			// 强行清空原版副标题，物理剥离原版拼音系统，避免红屏崩溃
 			object.secondaryText = null
 		}
-		else {
-			object.word = forceWord
-			object.secondaryText = null
-			object.shanghanQuestion = null
-		}
-
 		// Create word surfaces for rendering partially matched East Asian characters.
 		// 【注意这里】：我们将经文(shanghanQuestion)作为第三个参数强行塞给了贴图生成器！
 		if (isEastAsianPrimaryDisplay)

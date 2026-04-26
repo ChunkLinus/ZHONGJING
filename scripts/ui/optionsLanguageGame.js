@@ -11,8 +11,15 @@ export class OptionsLanguageGame extends OptionsLanguage
 
 	refresh()
 	{
-		// Update options text.
-		if ("language_name" in wordlists[currentGameLanguage])
+		// 【伤寒论核心：选项面板名称重定向】
+		let customMod = global.availableModules ? global.availableModules.find(m => m.lang === currentGameLanguage) : null;
+		
+		if (customMod)
+		{
+			this.varCount.setFont(regularEastAsian)
+			this.varCount.setText(customMod.text)
+		}
+		else if (wordlists[currentGameLanguage] && "language_name" in wordlists[currentGameLanguage])
 		{
 			const langName = wordlists[currentGameLanguage]["language_name"]
 			this.setLanguageFont(langName)
@@ -25,7 +32,6 @@ export class OptionsLanguageGame extends OptionsLanguage
 		}
 		super.refresh()
 	}
-
 	setLanguageFont(languageName)
 	{
 		const lang = guessLanguage(languageName)

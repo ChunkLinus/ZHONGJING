@@ -102,31 +102,32 @@ export class LanguageSelect extends Node
 		if (!this.useConfirmButton)
 			this.panel.confirmButton.hide()
 
-		// Use the right hashmap.
-		const dict = this.gameOrUI ? wordlists : localization
+		// --- 【伤寒论核心干预：UI 生成管线劫持】 ---
+		let languageInfo = [];
+		let currentLang = "";
 
-		// Grab language information.
-		const languageInfo = Object.keys(dict)
-			.filter(lang => this.onlyOfficialLanguages ?
-				officialLanguages.includes(lang) :
-				true
-			)
-			.map(lang => {
-				let languageName = dict[lang]['language_name']
-				let isEastAsian = eastAsianRange.test(languageName)
-				return {
-					lang: lang,
-					font: isEastAsian ? regularEastAsian : typingFont,
-					text: languageName
-				}
-			})
+		if (this.gameOrUI) {
+			// 【核心改动】：直接读取侦测到的模块列表，不再硬编码
+			languageInfo = global.availableModules; 
+			currentLang = currentGameLanguage || "shanghan";
+		} else {
+			// 2. 放行界面语言选项：保留原版的多国语言切换功能
+			const dict = localization;
+			languageInfo = Object.keys(dict)
+				.filter(lang => this.onlyOfficialLanguages ? officialLanguages.includes(lang) : true)
+				.map(lang => {
+					let languageName = dict[lang]['language_name']
+					let isEastAsian = eastAsianRange.test(languageName)
+					return {
+						lang: lang,
+						font: isEastAsian ? regularEastAsian : typingFont,
+						text: languageName
+					}
+				});
+			currentLang = currentUILanguage;
+		}
+		// -------------------------------------------
 
-		// Update language buttons.
-		const currentLang = this.gameOrUI ?
-			this.onlyOfficialLanguages && !officialLanguages.includes(currentGameLanguage) ?
-				"english"
-				: currentGameLanguage
-			: currentUILanguage
 		for (let i = 0; i < this.panel.languages.length; i++)
 		{
 			if (languageInfo.length > i + this.panel.currentPage * 24)
@@ -135,7 +136,10 @@ export class LanguageSelect extends Node
 				const langInfo = languageInfo[i + this.panel.currentPage * 24]
 				button.show()
 				button.lang = langInfo.lang
-				button.text.setFont(langInfo.font)
+				
+				// 【伤寒论核心：在 UI 生成的绝对安全期，强制挂载中文字体】
+				button.text.setFont(regularEastAsian) 
+				
 				button.text.setText(langInfo.text || langInfo.lang)
 				button.currentSelected = button.defaultFocus = langInfo.lang == currentLang
 				if (button.currentSelected && (usingController || keyboardArrows))
@@ -146,7 +150,9 @@ export class LanguageSelect extends Node
 		}
 
 		// Update Paginator.
-		this.panel.maxPages = Math.ceil(Object.values(dict).length / 24)
+		// 修改分页器的计算源，防止游戏模块由于缺少 dict 报错
+		let totalItems = this.gameOrUI ? languageInfo.length : Object.values(localization).length;
+		this.panel.maxPages = Math.ceil(totalItems / 24);
 		this.panel.paginator.refresh()
 	}
 

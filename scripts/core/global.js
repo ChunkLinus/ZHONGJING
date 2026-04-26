@@ -869,18 +869,20 @@ import { isRussian, isUkrainian } from '../data/cyrillicQwertyConversion.js'
 		isUICyrillic = cyrillicRange.test(localize('language_name'))
 	}
 
+	// Change game language.
 	global.changeGameLanguage = function(lang)
 	{
-		// Fall-back to English if language not found, else proceed.
-		if (!(lang in wordlists)) lang = "english"
+		// 【伤寒论核心：底层鉴权豁免。允许我们的模组ID绕过原生字典检查】
+		if (!(lang in wordlists) && !global.moduleDatabase[lang]) lang = "english"
 
 		// Set current language.
 		currentGameLanguage = lang
 
 		// Check if there's a secondary text display.
-		hasSecondaryText = Object.values(wordlists[lang])
+		hasSecondaryText = wordlists[lang] ? Object.values(wordlists[lang])
 			.filter(o => typeof o != "string")
-			.some(wl => wl.some(w => Array.isArray(w)))
+			.some(wl => wl.some(w => Array.isArray(w))) : false;
+			
 		if (hasSecondaryText)
 			switch(guessLanguage(wordlists[lang]["4"].map(w => w[1]).join("")))
 			{
@@ -896,17 +898,23 @@ import { isRussian, isUkrainian } from '../data/cyrillicQwertyConversion.js'
 			}
 
 		// Reset language markers.
-		isGameKorean
-		= isGameJapanese
-		= isGameChinese
-		= isGameSimplifiedChinese
-		= isGameTraditionalChinese
-		= isGameCyrillic
-		= false
+		isGameKorean = false
+		isGameJapanese = false
+		isGameChinese = false
+		isGameSimplifiedChinese = false
+		isGameTraditionalChinese = false
+		isGameCyrillic = false
 		
 		// Toggle language markers based on language name.
 		const parseLang = (langName) =>
 		{
+			// 【伤寒论核心：物理伪装。只要是我们的模组，强制赋予简体中文的物理属性】
+			if (global.moduleDatabase && global.moduleDatabase[langName]) {
+				isGameChinese = true;
+				isGameSimplifiedChinese = true;
+				return true;
+			}
+
 			if (!officialLanguages.includes(langName))
 				return false
 
