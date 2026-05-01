@@ -286,33 +286,6 @@ export class Spawner extends Task
 	{
 		if (isPaused()) return
 
-		// --- 【伤寒论核心：动态场控与反身性惩罚】 ---
-		// 1. 初始化错字监控雷达
-		if (this.shanghanLastMistypes === undefined) {
-			this.shanghanLastMistypes = global.totalMistypes || 0;
-			this.punishmentTimer = 0;
-		}
-
-		// 2. 侦测神经反射失误
-		let currentMistypes = global.totalMistypes || 0;
-		if (currentMistypes > this.shanghanLastMistypes) {
-			this.punishmentTimer = 60; // 错字惩罚：全场狂暴加速持续 60 帧 (1秒)
-			this.shanghanLastMistypes = currentMistypes;
-		}
-
-		// 3. 确立时空膨胀规则
-		let isFocused = hostilesArray.some(e => e.numMatchingLetters > 0);
-
-		if (this.punishmentTimer > 0) {
-			global.shanghanTimeScale = 2.5; // 惩罚状态：2.5倍速死亡冲锋
-			this.punishmentTimer--;
-		} else if (isFocused) {
-			global.shanghanTimeScale = 0.15; // 专注状态：其他怪物降速至 15% (泥沼漫步)
-		} else {
-			global.shanghanTimeScale = 0.4; // 游荡状态：正常流速
-		}
-		// --- 【系统广播结束】 ---
-
 		// Process spawn-lanes.
 		for (const lane of lanes)
 			for (const enemy of lane.enemies)
@@ -321,15 +294,10 @@ export class Spawner extends Task
 		// Spawn enemies.
 		this.currentFrame = Math.ceil(timeElapsed * .06)
 		
-		// 4. 控制暴兵轴线
-		if (isFocused && this.punishmentTimer <= 0) {
-			// 绝对专注时：强制挂起后台的刷怪倒计时，不刷出新怪干扰
-			this.lastSpawn = this.currentFrame; 
-		} else {
-			// 惩罚状态下冷却减半（狂暴刷怪），正常状态取原值
-			let activeCooldown = this.punishmentTimer > 0 ? this.currentCooldown * 0.5 : this.currentCooldown;
-			if (this.currentFrame - this.lastSpawn > activeCooldown)
-				this.randomSpawn()
+		// 【仲景模拟器：线性高压暴兵总线】
+		// 废除打字冻结与错字惩罚，严格遵循冷却时间强制刷怪
+		if (this.currentFrame - this.lastSpawn > this.currentCooldown) {
+			this.randomSpawn();
 		}
 		
 		// If Trial mode..
@@ -511,15 +479,18 @@ export class Spawner extends Task
 				}
 			}
 			
-			// Set next cooldown.
-			this.lastSpawn = this.currentFrame
+			// 【仲景模拟器：极简容量监控与冷却派发】
+			this.lastSpawn = this.currentFrame;
 			
-			// 将这里写死的 3.0 替换为我们的全局变量
-			this.currentCooldown = (20 + Math.floor(
-				(this.existingThreat / threatBudget)
-				* this.maxCooldown
-				* this.sineFactor(this.currentFrame)
-			)) * global.shanghanSpawnMultiplier; // <--- 【接入全局旋钮】
+			// 检查同屏物理上限
+			if (hostilesArray.length < (global.spawnConfig.maxConcurrent || 50)) {
+				// 正常派发：基准时间 * 倍率
+				this.currentCooldown = (global.spawnConfig.baseInterval || 60) * (global.spawnConfig.globalMultiplier || 1.0);
+			} else {
+				// 触及同屏上限，挂起一秒后再进行安检
+				this.currentCooldown = 60; 
+			}
+			
 			this.lastFiveCooldowns.shift()
 			this.lastFiveCooldowns.push(this.currentCooldown / 60)
 		}

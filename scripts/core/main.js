@@ -58,21 +58,9 @@ export default class MyGame extends Task
 		// Load all external assets.
 		LoadAll().then(() => {
 			
-			// Set language.
-			if ("UILanguage" in save || "gameLanguage" in save)
-			{
-				changeUILanguage("UILanguage" in save ? save.UILanguage : "english")
-				changeGameLanguage("gameLanguage" in save ? save.gameLanguage : "english")
-			}
-			else
-			{
-				if (isOozaru && !isXbox)
-					changeLanguage(ISOLanguageCode(window.navigator.language))
-				else if (steamEnabled)
-					changeLanguage(ISteamApps.GetCurrentGameLanguage())
-				else
-					changeLanguage("english")
-			}
+			// 【启动总线：极简语言记忆】
+			global.changeUILanguage("schinese"); 
+			global.changeGameLanguage(save.gameLanguage);
 
 			// Init core systems.
 			global.callback = new Callback()

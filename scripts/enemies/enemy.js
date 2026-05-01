@@ -604,25 +604,25 @@ export class Enemy extends Entity
 	{
 		if (this.active && !isPaused())
 		{
-			// --- 【伤寒论核心：个体动能劫持】 ---
+			// --- 【仲景模拟器：绝对目标物理静止】 ---
 			if (this.shanghanBaseSpeed === undefined) {
 				this.shanghanBaseSpeed = this.currentSpeed || 0;
 			}
 
-			let isPunished = (global.shanghanTimeScale > 1);
+			// 二进制判断：是否被玩家敲击并锁定
 			let isLocked = (this.numMatchingLetters > 0);
 
-			if (isLocked && !isPunished) {
-				// 专注锁定且未打错：死死钉在原地
+			if (isLocked) {
+				// 专注锁定：物理引擎速度向量强行归零，死死钉在原地
 				this.currentSpeed = 0;
 				if (this.body) Matter.Body.setVelocity(this.body, {x:0, y:0}); 
 			} else {
-				// 未锁定，或触发了错字惩罚：适用全局倍率
-				this.currentSpeed = this.shanghanBaseSpeed * (global.shanghanTimeScale !== undefined ? global.shanghanTimeScale : 1);
+				// 脱离锁定：瞬间恢复原始行军速度
+				this.currentSpeed = this.shanghanBaseSpeed;
 			}
 
-			// Fire update function. (仅被钉住时跳过物理刷新，防止冲突)
-			if (!(isLocked && !isPunished) && 
+			// Fire update function. (仅被钉住时跳过逻辑刷新)
+			if (!isLocked && 
 				!powerup_freeze &&
 				!this.statusEffects.some(status => status[0] == "coldStatus") &&
 				!(	this.isChild &&

@@ -438,21 +438,17 @@ import { ZhuyinWordConverter, ZhuyinCharConverter, ZhuyinToQwerty } from '../dat
 		if (omenLevel >= 2) length++
 
 		// Get word.
-		const maxAttempts = 1000
+		// 【伤寒论核心：算力降维。将死亡循环上限从 1000 次强行压制到 30 次】
+		const maxAttempts = 30; 
 		if (!forceWord)
 		{
 			let attempts = 0
 			
-			// 【伤寒论核心：全自动动态弹匣切换】
-			let currentModuleId = currentGameLanguage;
+			let currentModuleId = currentGameLanguage || "shanghan";
 			let dict = global.moduleDatabase[currentModuleId];
 
-			// 终极容错：如果当前模块失效或为初始空档，强制抓取矩阵中的第一个可用模块
 			if (!dict || dict.length === 0) {
-				let availableKeys = Object.keys(global.moduleDatabase);
-				if (availableKeys.length > 0) {
-					dict = global.moduleDatabase[availableKeys[0]];
-				}
+				dict = global.moduleDatabase["shanghan"];
 			}
 
 			do {
@@ -461,11 +457,13 @@ import { ZhuyinWordConverter, ZhuyinCharConverter, ZhuyinToQwerty } from '../dat
 				object.shanghanQuestion = sample.question
 			}
 			while (
+				// 【防堵塞机制】：只有当物理题库里的词汇量 > 20 时，才执行严格的去重检测。
+				// 如果是测试用的小题库，直接放行，允许屏幕上出现重复的怪物或背景词。
+				dict.length > 20 &&
 				anyPartialMatches(object.word.toLowerCase(), currentWords)
 				&& (attempts++ < maxAttempts)
 			)
 
-			// 强行清空原版副标题，物理剥离原版拼音系统，避免红屏崩溃
 			object.secondaryText = null
 		}
 		// Create word surfaces for rendering partially matched East Asian characters.

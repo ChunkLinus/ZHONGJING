@@ -42,9 +42,12 @@ import { isRussian, isUkrainian } from '../data/cyrillicQwertyConversion.js'
 	global.outOfLoot = false
 	global.IMEActiveWarningTrigger = false
 
-	// --- 【伤寒论干预：全局刷怪时间轴倍率】 ---
-	// 数值越大，冷却时间越长，怪物出得越慢。原版初始为 1.0 倍。
-	global.shanghanSpawnMultiplier = 3.0
+	// --- 【仲景模拟器：F1级火控配置中枢】 ---
+	global.spawnConfig = {
+		baseInterval: 60,       // 基准冷却（帧）。60帧 = 1秒1只
+		globalMultiplier: 5.0,  // 全局倍率总阀。0.5 = 两倍速爆兵
+		maxConcurrent: 50       // 同屏物理绝对上限，防止内存溢出
+	};
 
 	// Enums.
 	
@@ -857,10 +860,11 @@ import { isRussian, isUkrainian } from '../data/cyrillicQwertyConversion.js'
 	// Change language.
 	global.changeLanguage = function(lang)
 	{
-		changeUILanguage(lang)
-		changeGameLanguage(lang)
+		global.changeUILanguage(lang)
+		global.changeGameLanguage(lang)
 	}
 
+	// 【之前被你不小心删掉的函数，现在补回来】
 	global.changeUILanguage = function(lang)
 	{
 		if (!(lang in localization)) lang = "english"
@@ -872,82 +876,29 @@ import { isRussian, isUkrainian } from '../data/cyrillicQwertyConversion.js'
 	// Change game language.
 	global.changeGameLanguage = function(lang)
 	{
-		// 【伤寒论核心：底层鉴权豁免。允许我们的模组ID绕过原生字典检查】
-		if (!(lang in wordlists) && !global.moduleDatabase[lang]) lang = "english"
+		// 【极简动态寻址与记忆回落】
+		if (!global.moduleDatabase || !global.moduleDatabase[lang]) {
+			let available = Object.keys(global.moduleDatabase || {});
+			lang = available.length > 0 ? available[0] : "english"; 
+		}
 
-		// Set current language.
-		currentGameLanguage = lang
+		currentGameLanguage = lang;
 
-		// Check if there's a secondary text display.
-		hasSecondaryText = wordlists[lang] ? Object.values(wordlists[lang])
-			.filter(o => typeof o != "string")
-			.some(wl => wl.some(w => Array.isArray(w))) : false;
-			
-		if (hasSecondaryText)
-			switch(guessLanguage(wordlists[lang]["4"].map(w => w[1]).join("")))
-			{
-				case "schinese": case "tchinese": case "koreana":
-					secondaryTextFont = regularEastAsianMedium
-					break
-				 case "japanese":
-					secondaryTextFont = regularJapaneseMedium
-					break
-				default:
-					secondaryTextFont = typingFontMedium
-					break
-			}
-
-		// Reset language markers.
-		isGameKorean = false
-		isGameJapanese = false
-		isGameChinese = false
-		isGameSimplifiedChinese = false
-		isGameTraditionalChinese = false
-		isGameCyrillic = false
+		isGameKorean = false;
+		isGameJapanese = false;
+		isGameCyrillic = false;
+		isGameTraditionalChinese = false;
 		
-		// Toggle language markers based on language name.
-		const parseLang = (langName) =>
-		{
-			// 【伤寒论核心：物理伪装。只要是我们的模组，强制赋予简体中文的物理属性】
-			if (global.moduleDatabase && global.moduleDatabase[langName]) {
-				isGameChinese = true;
-				isGameSimplifiedChinese = true;
-				return true;
-			}
+		isGameChinese = true;
+		isGameSimplifiedChinese = true;
+		isGameEastAsian = true;
+		isEastAsianPrimaryDisplay = true;
+		
+		hasSecondaryText = false;
+		secondaryTextFont = regularEastAsianMedium;
 
-			if (!officialLanguages.includes(langName))
-				return false
-
-			switch(langName)
-			{
-				case "koreana": isGameKorean = true; return true
-				case "japanese": isGameJapanese = true; return true
-				case "schinese": isGameChinese = true; isGameSimplifiedChinese = true; return true
-				case "tchinese": isGameChinese = true; isGameTraditionalChinese = true; return true
-				case "russian": case "ukrainian": case "bulgarian": isGameCyrillic = true; return true
-				default: return true
-			}
-		}
-
-		// Parse current language.
-		if (!parseLang(lang))
-		{
-			if (!("baseLanguage" in wordlists[lang] && parseLang(wordlists[lang].baseLanguage)))
-			{
-				const testString = wordlists[lang]["4"].map(w => hasSecondaryText ? w[0] : w).join("")
-				parseLang(guessLanguage(testString))
-			}
-		}
-
-		// Check if CJK for formatting purposes.
-		isGameEastAsian = isGameKorean || isGameChinese || isGameJapanese
-		isEastAsianPrimaryDisplay = isGameKorean || isGameChinese
-
-		// Get localized extra letters.
-		global.possibleExtraLetters = [getTriggerLetters('Extra_1'), getTriggerLetters('Extra_2')]
-
-		// Change level up key to Enter if Traditional Chinese because Space is used to type characters.
-		levelUpKey = isGameTraditionalChinese || spacesAndPunctuation ? "Enter" : "__"
+		global.possibleExtraLetters = [getTriggerLetters('Extra_1'), getTriggerLetters('Extra_2')];
+		levelUpKey = spacesAndPunctuation ? "Enter" : "__";
 	}
 
 	// Word wrap for east asian languages.
