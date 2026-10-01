@@ -9,3 +9,6 @@ __pycache__/
 
 # 忽略临时错误日志
 *.log
+#保护渲染引擎和dll库
+!neosphere.exe
+!ChakraCore.dll
