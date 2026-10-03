@@ -845,17 +845,30 @@ export class Control extends Task
 		// Use the right collection.
 		let currentWords = inUpgradeMenu ? wordsInUseMenu : wordsInUse
 
-		// --- 【伤寒论核心干预：绝对近防火控雷达重排】 ---
-		// 在处理任何按键输入之前，强制将场上所有的词汇目标按物理距离(离防线的远近)进行升序重排。
-		// 这不仅解决了两个“桂枝汤”打远端的问题，还会让所有共享首字母(比如 'g')的判定严格遵循“先近后远”。
+		// --- 【阶段一·火控核心：锁定粘性 (Sticky Lock) 与近防火控雷达重排】 ---
+		// 1. 正在敲击中的目标（numMatchingLetters > 0）拥有最高优先级，杜绝后方高速怪中途超车劫持按键
+		// 2. 匹配字符数更多的目标排在最前
+		// 3. 匹配状态相同时，严格按物理距离升序排（先近后远），确保初次寻敌最近优先
 		if (!inUpgradeMenu && currentWords === wordsInUse) {
 			currentWords.sort((a, b) => {
-				let distA = (a[2] && a[2].getPosition) ? distanceBetween(a[2].getPosition(), screenCenter) : Infinity;
-				let distB = (b[2] && b[2].getPosition) ? distanceBetween(b[2].getPosition(), screenCenter) : Infinity;
+				let objA = a[2];
+				let objB = b[2];
+
+				let matchA = (objA && objA.numMatchingLetters > 0) ? (objA.variantMatches || objA.numMatchingLetters) : 0;
+				let matchB = (objB && objB.numMatchingLetters > 0) ? (objB.variantMatches || objB.numMatchingLetters) : 0;
+
+				if (matchA > 0 || matchB > 0) {
+					if (matchA !== matchB) {
+						return matchB - matchA;
+					}
+				}
+
+				let distA = (objA && objA.getPosition) ? distanceBetween(objA.getPosition(), screenCenter) : Infinity;
+				let distB = (objB && objB.getPosition) ? distanceBetween(objB.getPosition(), screenCenter) : Infinity;
 				return distA - distB;
 			});
 		}
-		// ------------------------------------------------
+		// -------------------------------------------------------------------
 
 		// If input is from keyboard.
 		let isMisType
@@ -940,6 +953,16 @@ export class Control extends Task
 		{
 			// Increment total mistypes.
 			totalMistypes++
+
+			// 错题本闭环：优先记录当前处于粘性锁定的目标，若尚未锁定则记录最近的目标
+			if (typeof global.recordSessionMistake === 'function' && currentWords && currentWords.length > 0)
+			{
+				let activeTarget = currentWords.find(w => w[2] && w[2].numMatchingLetters > 0)
+				let targetObj = activeTarget ? activeTarget[2] : (currentWords[0] ? currentWords[0][2] : null)
+				if (targetObj) {
+					global.recordSessionMistake(targetObj, "mistype")
+				}
+			}
 
 			// If Scapegoat augment.
 			if ("augment_scapegoat" in activeAugments && !inUpgradeMenu)
@@ -1041,12 +1064,15 @@ export class Control extends Task
 			{
 				obj.displayedPinyin = obj.variantString
 				let variantObj = obj.wordVariants.find(variant => variant.word == obj.variantString)
-				let characterCount = 0
-				for (let i = 0; i < variantObj.increments.length - 1; i++)
+				if (variantObj && Array.isArray(variantObj.increments))
 				{
-					let v = variantObj.increments[i]
-					characterCount += v
-					obj.displayedPinyin = obj.displayedPinyin.slice(0, characterCount + i) + " " + obj.displayedPinyin.slice(characterCount + i)
+					let characterCount = 0
+					for (let i = 0; i < variantObj.increments.length - 1; i++)
+					{
+						let v = variantObj.increments[i]
+						characterCount += v
+						obj.displayedPinyin = obj.displayedPinyin.slice(0, characterCount + i) + " " + obj.displayedPinyin.slice(characterCount + i)
+					}
 				}
 			}
 
@@ -1069,7 +1095,7 @@ export class Control extends Task
 					font = typingFontLarge
 				}
 				factory.spawn(WordComplete, shownWord, font, darkGray, obj)
-				this.wordInput(word, Date.now() - obj.wpmTimeStart, true, obj.cyphered, matchedVariant.word)
+				this.wordInput(word, Date.now() - obj.wpmTimeStart, true, obj.cyphered, matchedVariant.word, obj)
 			}
 		}
 
@@ -1090,7 +1116,9 @@ export class Control extends Task
 					obj.cyphered ? obj.cypherString : obj.word,
 					Date.now() - obj.wpmTimeStart,
 					false,
-					obj.cyphered
+					obj.cyphered,
+					word,
+					obj
 				)
 			}
 		}
@@ -1104,13 +1132,12 @@ export class Control extends Task
 		return (which < 2) ? !numMatched : null
 	}
 
-	wordInput(word, timeTaken = 0, isWord = false, cyphered = false, actualWord = word)
+	wordInput(word, timeTaken = 0, isWord = false, cyphered = false, actualWord = word, targetObj = null)
 	{
 		// Use the right collection.
 		let currentWords = cyphered ? cyphersInUse : inUpgradeMenu ? wordsInUseMenu : wordsInUse
 
-		// --- 【伤寒论核心干预：结算级近防保险】 ---
-		// 确保在执行击杀结算 (.find) 之前，数组依然是按物理距离严格排序的，防止多目标同名时的击杀错位。
+		// --- 【伤寒论核心干预：结算级近防保险与精确实例锁定】 ---
 		if (!inUpgradeMenu && currentWords === wordsInUse) {
 			currentWords.sort((a, b) => {
 				let distA = (a[2] && a[2].getPosition) ? distanceBetween(a[2].getPosition(), screenCenter) : Infinity;
@@ -1118,13 +1145,15 @@ export class Control extends Task
 				return distA - distB;
 			});
 		}
-		// ------------------------------------------
+		// -------------------------------------------------------
 
 		Keylog = "************"
 		Joylog.fill(null)
 		currentWords.forEach(v => v[2].updateWordDisplay(2))
 
-		let match = currentWords.find(v => v[0] == word)
+		// 优先根据击杀实例 targetObj 精确索引，杜绝多目标同名时的击杀错位
+		let match = targetObj ? currentWords.find(v => v[2] === targetObj) : null
+		if (!match) match = currentWords.find(v => v[0] == word)
 		if (match)
 		{
 			// Play word complete sound.

@@ -16,6 +16,9 @@ import { OptionsLanguage } from './optionsLanguage.js'
 import { OptionsVisualTheme } from './optionsVisualTheme.js'
 import { OptionsLanguageDoublePinyin } from './optionsLanguageDoublePinyin.js'
 import { OptionsAvoidOverlap } from './optionsAvoidOverlap.js'
+import { OptionsSpawnMultiplier } from './optionsSpawnMultiplier.js'
+import { OptionsMaxConcurrent } from './optionsMaxConcurrent.js'
+import { OptionsPinyinAssistMode } from './optionsPinyinAssistMode.js'
 
 export class MainMenuOptions extends Node
 {
@@ -100,14 +103,14 @@ export class MainMenuOptions extends Node
 			new OptionsMuteTypingSounds(navBar)
 		]
 		
-		// Language options.
+		// Language / Zhongjing Options.
 		let languageOptions = []
-		languageOptions.push(new OptionsLanguageUI(navBar))
 		languageOptions.push(new OptionsLanguageGame(navBar))
+		languageOptions.push(new OptionsSpawnMultiplier(navBar))
+		languageOptions.push(new OptionsMaxConcurrent(navBar))
+		languageOptions.push(new OptionsPinyinAssistMode(navBar))
 		if (isGameSimplifiedChinese)
 			languageOptions.push(new OptionsLanguageDoublePinyin(navBar))
-		if (!isOozaru && !isGameTraditionalChinese)
-			languageOptions.push(new OptionsSpacesAndPunctuation(navBar))
 
 		// Construct categories.
 		this.categories = [
@@ -166,7 +169,16 @@ export class MainMenuOptions extends Node
 		if (resetCategory) this.currentCategory = 0
 		this.categoryLeft.refresh()
 		this.categoryRight.refresh()
-		this.categoryText.setText(localize("option_category_" + this.currentCategory))
+		if (this.currentCategory == 2)
+		{
+			if (typeof regularEastAsian !== 'undefined') this.categoryText.setFont(regularEastAsian)
+			this.categoryText.setText("仲景背诵中枢")
+		}
+		else
+		{
+			this.categoryText.setFont(regularFontUI())
+			this.categoryText.setText(localize("option_category_" + this.currentCategory))
+		}
 		this.categoryCounter.refresh(this.currentCategory, 3)
 		this.categories.forEach(cat => cat.hide())
 		this.categories[this.currentCategory].show()

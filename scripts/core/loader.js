@@ -218,6 +218,9 @@ async function loadGame()
 			Sphere.desktopResolution
 			: detectOptimalResolution(fullScreen),
 		augments: {},
+		spawnMultiplier: 1.0,
+		maxConcurrent: 50,
+		pinyinAssistMode: "assist",
 		turrets: {
 			Repeater: {
 				trialsRecord: { trial: 0, omen: 0 },
@@ -259,6 +262,11 @@ async function loadSaveFromFile(saveGamePath)
 			spacesAndPunctuation = "spacesAndPunctuation" in save ? save.spacesAndPunctuation : false
 			levelUpKey = spacesAndPunctuation ? "Enter" : "__"
 			allowDoublePinyin = "allowDoublePinyin" in save ? save.allowDoublePinyin : null
+
+			// 仲景配置持久化反序列化
+			if ("spawnMultiplier" in save) global.spawnConfig.globalMultiplier = save.spawnMultiplier
+			if ("maxConcurrent" in save) global.spawnConfig.maxConcurrent = save.maxConcurrent
+			if ("pinyinAssistMode" in save) global.pinyinAssistMode = save.pinyinAssistMode
 
 			// Update old saves.
 			// -----------------

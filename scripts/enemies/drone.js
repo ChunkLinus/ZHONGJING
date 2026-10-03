@@ -63,6 +63,7 @@ export class Drone extends Enemy
 			// Grab the first and ignore the rest
 			const collision = collisions[0]
 			let otherId = String(collision.bodyA.id == this.body.id ? collision.bodyB.id : collision.bodyA.id)
+			this.recordBreach()
 			friendlies[otherId].getHit(this.damage)
 			factory.spawn(Impact, this.body.position.x, this.body.position.y);
 			[...allWeapons, currentTurret].forEach(weap => weap.onEnemyDestroyed(this, null, false))

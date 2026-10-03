@@ -105,8 +105,8 @@ class SummaryScreenPanel extends Node
 			.setFlexDirection(Yoga.FLEX_DIRECTION_COLUMN)
 			.setJustifyContent(Yoga.JUSTIFY_CENTER)
 			.setAlignItems(Yoga.ALIGN_CENTER)
-			.setWidth("40%")
-			.setHeight("65%")
+			.setWidth("45%")
+			.setHeight("70%")
 		
 		this.icon = new Text()
 			.setFont(interfaceIconsLarge)
@@ -114,7 +114,7 @@ class SummaryScreenPanel extends Node
 			.setColor(midGray)
 			.setWidth("100%")
 			.setTextAlign(textAlign.center)
-			.setMargin(Yoga.EDGE_BOTTOM, scalePix(20))
+			.setMargin(Yoga.EDGE_BOTTOM, scalePix(12))
 			.setChildOf(this)
 		
 		this.survived = new Text()
@@ -130,7 +130,7 @@ class SummaryScreenPanel extends Node
 			.setTextAlign(textAlign.center)
 			.setFont(timerFont)
 			.setText("00:00:00")
-			.setMargin(Yoga.EDGE_BOTTOM, scalePix(8))
+			.setMargin(Yoga.EDGE_BOTTOM, scalePix(6))
 			.setColor(darkGray)
 			.setChildOf(this)
 
@@ -139,13 +139,13 @@ class SummaryScreenPanel extends Node
 			.setTextAlign(textAlign.center)
 			.setFont(regularFontUI())
 			.setText("Level 15 Repeater")
-			.setMargin(Yoga.EDGE_BOTTOM, scalePix(40))
+			.setMargin(Yoga.EDGE_BOTTOM, scalePix(24))
 			.setColor(midGray)
 			.setChildOf(this)
 		
 		this.dataGroups = new Node()
 			.setWidth("100%")
-			.setHeight("25%")
+			.setHeight("30%")
 			.setChildOf(this)
 		
 		this.wpm = new DataGroup()
@@ -171,12 +171,18 @@ class SummaryScreenPanel extends Node
 			.setName(`${localize("ranking_points_text")}:`)
 			.setValue("123456")
 			.setChildOf(this.dataGroups)
+
+		// 错题统计数据行
+		this.mistakesGroup = new DataGroup()
+			.setName("易错条文:")
+			.setValue("全对无错题")
+			.setChildOf(this.dataGroups)
 		
 		this.buttonGroup = new Node()
 			.setFlexDirection(Yoga.FLEX_DIRECTION_ROW)
 			.setJustifyContent(Yoga.JUSTIFY_CENTER)
 			.setAlignItems(Yoga.ALIGN_CENTER)
-			.setMargin(Yoga.EDGE_TOP, scalePix(70))
+			.setMargin(Yoga.EDGE_TOP, scalePix(40))
 			.setWidth("100%")
 			.setChildOf(this)
 		
@@ -184,6 +190,9 @@ class SummaryScreenPanel extends Node
 			.setChildOf(this.buttonGroup)
 
 		this.nextLevelButton = new NextLevelButton()
+			.setChildOf(this.buttonGroup)
+
+		this.exportMistakesButton = new ExportMistakesButton()
 			.setChildOf(this.buttonGroup)
 
 		this.button = new ContinueButton()
@@ -341,8 +350,12 @@ class SummaryScreenPanel extends Node
 			// Show/Hide buttons.
 			this.nextLevelButton.hide()
 			this.retryButton.show()
-			this.retryButton.setRightNext(this.button)
-			this.button.setLeftNext(this.retryButton)
+			this.exportMistakesButton.show()
+			this.button.show()
+			this.retryButton.setRightNext(this.exportMistakesButton)
+			this.exportMistakesButton.setLeftNext(this.retryButton)
+			this.exportMistakesButton.setRightNext(this.button)
+			this.button.setLeftNext(this.exportMistakesButton)
 			
 			const scoreNumber = omenScoreMult(timeElapsed)
 			const score = scoreNumber.toFixed(0)
@@ -429,7 +442,12 @@ class SummaryScreenPanel extends Node
 			if (missionTier >= maxMissionTier)
 			{
 				this.nextLevelButton.hide()
-				this.button.setLeftNext(null)
+				this.retryButton.hide()
+				this.exportMistakesButton.show()
+				this.button.show()
+				this.exportMistakesButton.setLeftNext(null)
+				this.exportMistakesButton.setRightNext(this.button)
+				this.button.setLeftNext(this.exportMistakesButton)
 
 				// Delete game state.
 				let turretName = currentTurret.constructor.name
@@ -458,8 +476,12 @@ class SummaryScreenPanel extends Node
 				// Show/Hide buttons.
 				this.retryButton.hide()
 				this.nextLevelButton.show()
-				this.nextLevelButton.setRightNext(this.button)
-				this.button.setLeftNext(this.nextLevelButton)
+				this.exportMistakesButton.show()
+				this.button.show()
+				this.nextLevelButton.setRightNext(this.exportMistakesButton)
+				this.exportMistakesButton.setLeftNext(this.nextLevelButton)
+				this.exportMistakesButton.setRightNext(this.button)
+				this.button.setLeftNext(this.exportMistakesButton)
 
 				// Save game.
 				let saveState = {
@@ -497,6 +519,25 @@ class SummaryScreenPanel extends Node
 		this.accuracy.setValue(`${Math.round(accuracy * 100)}% (${totalMistypes} ${localize("mistakes_text")})`)
 		this.bestWeapon.setValue(`${weaponRanking[0][0]} (${weaponRanking[0][1].toFixed(1)} dps)`)
 		this.coinsEarned.setValue(`${coinsEarned} §`)
+
+		// 错题本统计与导出状态同步
+		let mistakeCount = global.sessionMistakes ? global.sessionMistakes.size : 0
+		if (mistakeCount > 0)
+		{
+			let sortedRecords = Array.from(global.sessionMistakes.values()).sort((a, b) => {
+				let weightA = (a.mistypes || 0) + (a.breaches || 0) * 3
+				let weightB = (b.mistypes || 0) + (b.breaches || 0) * 3
+				return weightB - weightA
+			})
+			let topWord = sortedRecords[0] ? sortedRecords[0].word : ""
+			this.mistakesGroup.setValue(`${mistakeCount} 条 (重灾区: ${topWord})`)
+			this.exportMistakesButton.setMistakeCount(mistakeCount)
+		}
+		else
+		{
+			this.mistakesGroup.setValue("全对无错题 (心领神会)")
+			this.exportMistakesButton.setMistakeCount(0)
+		}
 	}
 }
 
@@ -630,6 +671,76 @@ class RetryButton extends SummaryScreenButton
 	{
 		super.activate()
 		ui.summaryScreen.startExtro(false, true)
+	}
+}
+
+class ExportMistakesButton extends SummaryScreenButton
+{
+	constructor()
+	{
+		super()
+		this.totalMistakes = 0
+		this.exported = false
+		this.refreshLabel()
+	}
+
+	refreshLabel()
+	{
+		let text = "导出今日错题"
+		if (this.exported)
+			text = "✓ 已导出复习本"
+		else if (this.totalMistakes > 0)
+			text = `导出错题 (${this.totalMistakes}条)`
+		else
+			text = "全对无错题"
+
+		this.setWidth(regularFontUI().widthOf(text) + scalePix(50))
+		this.text.setText(text)
+	}
+
+	setMistakeCount(count)
+	{
+		this.totalMistakes = count
+		this.exported = false
+		this.refreshLabel()
+	}
+
+	async activate()
+	{
+		super.activate()
+		if (this.exported) return
+
+		let mistakesMap = global.sessionMistakes
+		if (!mistakesMap || mistakesMap.size === 0)
+		{
+			audioHandler.playAudioHookUI("typing_ok")
+			return
+		}
+
+		let exportList = []
+		for (let record of mistakesMap.values())
+		{
+			let line = record.original || ("{" + record.word + "}")
+			if (line && !exportList.includes(line))
+				exportList.push(line)
+		}
+
+		if (exportList.length === 0) return
+
+		try
+		{
+			await File.save("@/mods/今日错题复习.json", JSON.stringify(exportList, null, "\t"))
+			if (typeof global.loadExternalDictionary === 'function')
+				await global.loadExternalDictionary()
+			this.exported = true
+			this.refreshLabel()
+			audioHandler.playAudioHookUI("summary_screen_button_click")
+			console.log(`【错题本闭环】成功导出 ${exportList.length} 条错题至 @/mods/今日错题复习.json`)
+		}
+		catch (e)
+		{
+			console.log(`【错题本导出失败】: ${e}`)
+		}
 	}
 }
 

@@ -16,29 +16,61 @@ import { ZhuyinWordConverter, ZhuyinCharConverter, ZhuyinToQwerty } from '../dat
 	global.moduleDatabase = {}; // <--- 新增：多模块全局矩阵
 
 	global.parseClozeDictionary = function(rawArray) {
-		let parsedDict = []; // 改为局部变量
+		let parsedDict = [];
+		if (!Array.isArray(rawArray)) return parsedDict;
+
+		// 中英文常见标点符号正则（用于净化作答词，保证拼音输入纯粹合法）
+		const punctuationRegex = /[\s\u3000、，。！？；：“”‘’（）《》〈〉【】,\.\!\?\;\:\"\'\(\)\[\]\-]/g;
+
 		rawArray.forEach(text => {
-			let regex = /\{(.+?)\}/g;
+			if (typeof text !== 'string') return;
+
+			// 提取所有被 {} 包裹的考点及其在原句中的字符物理区间
+			let regex = /\{([^}]+)\}/g;
 			let match;
 			let matches = [];
 
 			while ((match = regex.exec(text)) !== null) {
-				matches.push(match[1]);
+				matches.push({
+					rawText: match[1],
+					startIndex: match.index,
+					endIndex: match.index + match[0].length
+				});
 			}
 
-			matches.forEach(targetWord => {
-				let questionStr = text;
-				matches.forEach(otherWord => {
-					if (otherWord === targetWord) {
-						questionStr = questionStr.replace(`{${otherWord}}`, "[____]");
+			if (matches.length === 0) return;
+
+			// 对每个考点独立生成一道填空题
+			matches.forEach((targetMatch, targetIndex) => {
+				// 净化作答词：剔除标点符号，防止拼音库因顿号/逗号报错或无法消除
+				let cleanAnswer = targetMatch.rawText.replace(punctuationRegex, "");
+				if (!cleanAnswer || cleanAnswer.length === 0) return;
+
+				// 构建题目字符串：使用切片流式拼接，彻底消除 string.replace 重复词覆盖 Bug
+				let questionParts = [];
+				let lastIndex = 0;
+
+				matches.forEach((m, idx) => {
+					// 拼接当前考点之前的原文
+					questionParts.push(text.slice(lastIndex, m.startIndex));
+					if (idx === targetIndex) {
+						// 当前考点挖空
+						questionParts.push("[____]");
 					} else {
-						questionStr = questionStr.replace(`{${otherWord}}`, otherWord);
+						// 其余考点还原为正常经文（剥离大括号）
+						questionParts.push(m.rawText);
 					}
+					lastIndex = m.endIndex;
 				});
-				parsedDict.push({ answer: targetWord, question: questionStr });
+				// 拼接末尾原文
+				questionParts.push(text.slice(lastIndex));
+
+				let questionStr = questionParts.join("");
+				parsedDict.push({ answer: cleanAnswer, question: questionStr, original: text });
 			});
 		});
-		return parsedDict; // 返回解析后的阵列
+
+		return parsedDict;
 	};
 	// --- 【伤寒论 3.0：全自动雷达扫描引擎】 ---
 	global.availableModules = []; 
@@ -272,8 +304,77 @@ import { ZhuyinWordConverter, ZhuyinCharConverter, ZhuyinToQwerty } from '../dat
 		"署长": [["shu"], ["zhang"]],
 		"同行": [["tong"], ["xing"]],
 		"着手": [["zhuo"], ["shou"]],
-		"萝卜": [["luo"], ["bo"]]
+		"萝卜": [["luo"], ["bo"]],
+
+		// --- 【仲景特异字词异读白名单：经典经文发音校准】 ---
+		"恶寒": [["wu", "e"], ["han"]],
+		"恶风": [["wu", "e"], ["feng"]],
+		"必恶寒": [["bi"], ["wu", "e"], ["han"]],
+		"但恶寒": [["dan"], ["wu", "e"], ["han"]],
+		"背恶寒": [["bei"], ["wu", "e"], ["han"]],
+		"发热恶寒": [["fa"], ["re"], ["wu", "e"], ["han"]],
+		"无热恶寒": [["wu"], ["re"], ["wu", "e"], ["han"]],
+		"脉数": [["mai"], ["shuo", "shu"]],
+		"数急": [["shuo", "shu"], ["ji"]],
+		"脉数急": [["mai"], ["shuo", "shu"], ["ji"]],
+		"脉数急者": [["mai"], ["shuo", "shu"], ["ji"], ["zhe"]],
+		"强几几": [["jiang", "qiang"], ["jin", "zhi", "ji"], ["jin", "zhi", "ji"]],
+		"项背强几几": [["xiang"], ["bei"], ["jiang", "qiang"], ["jin", "zhi", "ji"], ["jin", "zhi", "ji"]],
+		"病差": [["bing"], ["chai", "cha"]],
+		"瘛疭": [["chi"], ["zong"]],
+		"时瘛疭": [["shi"], ["chi"], ["zong"]],
+		"怫郁": [["fu"], ["yu"]],
+		"啬啬": [["se"], ["se"]],
+		"啬啬恶寒": [["se"], ["se"], ["wu", "e"], ["han"]],
+		"淅淅": [["xi"], ["xi"]],
+		"淅淅恶风": [["xi"], ["xi"], ["wu", "e"], ["feng"]],
+		"翕翕": [["xi"], ["xi"]],
+		"翕翕发热": [["xi"], ["xi"], ["fa"], ["re"]],
+		"直视失溲": [["zhi"], ["shi"], ["shi"], ["sou"]],
+		"失溲": [["shi"], ["sou"]],
+		"心下痞": [["xin"], ["xia"], ["pi"]],
+		"痞": [["pi"]],
+		"干呕": [["gan"], ["ou"]],
+		"鼻鸣干呕": [["bi"], ["ming"], ["gan"], ["ou"]],
+		"鼻鸣干呕者": [["bi"], ["ming"], ["gan"], ["ou"], ["zhe"]],
+		"一逆尚引日": [["yi"], ["ni"], ["shang"], ["yin"], ["ri"]],
+		"引日": [["yin"], ["ri"]],
+		"促命期": [["cu"], ["ming"], ["qi", "ji"]],
+		"再逆促命期": [["zai"], ["ni"], ["cu"], ["ming"], ["qi", "ji"]],
+		"行其经尽": [["xing"], ["qi"], ["jing"], ["jin"]],
+		"少阳": [["shao"], ["yang"]],
+		"少阴": [["shao"], ["yin"]],
+		"厥阴": [["jue"], ["yin"]],
+		"太阳": [["tai"], ["yang"]],
+		"阳明": [["yang"], ["ming"]],
+		"太阴": [["tai"], ["yin"]],
+		"撮空": [["cuo"], ["kong"]],
+		"惊痫": [["jing"], ["xian"]],
+		"微发黄色": [["wei"], ["fa"], ["huang"], ["se"]],
+		"剧则如惊痫": [["ju"], ["ze"], ["ru"], ["jing"], ["xian"]]
 	}
+
+	// 中医特异字音单字兜底映射（当长词未被词组覆盖时，单字自动双拼读容错）
+	global.tcmCharHeteronyms = {
+		"恶": ["wu", "e"],
+		"数": ["shuo", "shu"],
+		"强": ["jiang", "qiang"],
+		"几": ["jin", "zhi", "ji"],
+		"差": ["chai", "cha"],
+		"瘛": ["chi"],
+		"疭": ["zong"],
+		"怫": ["fu"],
+		"郁": ["yu"],
+		"啬": ["se"],
+		"淅": ["xi"],
+		"翕": ["xi"],
+		"痞": ["pi"],
+		"溲": ["sou"],
+		"解": ["jie", "xie"],
+		"干": ["gan"],
+		"行": ["xing", "hang"],
+		"少": ["shao"]
+	};
 
 	// ISO Language code converter.
 	global.ISOLanguageCode = function(code)
@@ -364,47 +465,12 @@ import { ZhuyinWordConverter, ZhuyinCharConverter, ZhuyinToQwerty } from '../dat
 	}
 
 	// Create surface and print hiragana/chinese on it.
-	global.createWordSurface = function(word, font, question = null)
+	global.createWordSurface = function(word, font)
 	{
-		if (question) {
-			// 自动换行算法：每行 8 个字（可根据你的屏幕观感自行调整这个数字）
-			let lines = [];
-			let lineLength = 8;
-			for (let i = 0; i < question.length; i += lineLength) {
-				lines.push(question.slice(i, i + lineLength));
-			}
-
-			let qWidth = 0;
-			for (let l of lines) {
-				let lw = font.widthOf(l);
-				if (lw > qWidth) qWidth = lw;
-			}
-
-			let wWidth = font.widthOf(word);
-			let width = Math.max(qWidth, wWidth);
-			let height = font.height + 5 + (lines.length * font.height);
-
-			let surface = new Surface(width, height);
-
-			// 【绝对物理法则】：作答词汇必须死死钉在 (0,0) 原点！
-			// 因为引擎原版的高亮裁剪算法永远从 (0,0) 开始切。一旦偏离，就会出现“太枝汤”这样的拼接错字。
-			font.drawText(surface, 0, 0, word, Color.White);
-
-			// 将长经文以金色字体（RGB: 255, 204, 0）悬挂在作答区下方
-			let currentY = font.height + 5;
-			for (let l of lines) {
-				font.drawText(surface, 0, currentY, l, new Color(255, 204, 0));
-				currentY += font.height;
-			}
-
-			return surface;
-		} else {
-			// 回退逻辑（防崩溃兜底）
-			let surface = new Surface(font.widthOf(word), font.height);
-			font.drawText(surface, 0, 0, word, Color.White);
-			return surface;
-		}
-	}
+		let surface = new Surface(font.widthOf(word), font.height);
+		font.drawText(surface, 0, 0, word, Color.White);
+		return surface;
+	};
 
 	// Helper function to get a word assigned.
 	global.addWord = function(object, menu = false, length = false, forceWord = null)
@@ -455,6 +521,7 @@ import { ZhuyinWordConverter, ZhuyinCharConverter, ZhuyinToQwerty } from '../dat
 				let sample = Random.sample(dict)
 				object.word = sample.answer
 				object.shanghanQuestion = sample.question
+				object.shanghanOriginal = sample.original || ("{" + sample.answer + "}")
 			}
 			while (
 				// 【防堵塞机制】：只有当物理题库里的词汇量 > 20 时，才执行严格的去重检测。
@@ -467,9 +534,11 @@ import { ZhuyinWordConverter, ZhuyinCharConverter, ZhuyinToQwerty } from '../dat
 			object.secondaryText = null
 		}
 		// Create word surfaces for rendering partially matched East Asian characters.
-		// 【注意这里】：我们将经文(shanghanQuestion)作为第三个参数强行塞给了贴图生成器！
-		if (isEastAsianPrimaryDisplay)
-			object.wordSurface = createWordSurface(object.word, menu ? titleEastAsian : regularEastAsianLarge, object.shanghanQuestion)
+		// 【管线清洗】：题库经文直接走 enemy.js 原生绘制管线，无需分配经文 Surface，彻底消除内存与贴图浪费
+		if (isEastAsianPrimaryDisplay && !object.shanghanQuestion)
+			object.wordSurface = createWordSurface(object.word, menu ? titleEastAsian : regularEastAsianLarge)
+		else
+			object.wordSurface = null
 
 		// Get variants.
 		object.wordVariants = generateVariants(object.word)
@@ -684,65 +753,95 @@ import { ZhuyinWordConverter, ZhuyinCharConverter, ZhuyinToQwerty } from '../dat
 		}]
 	}
 
+	// 笛卡尔积组合，生成所有合法拼音排列（拼音双判与异读容错）
+	global.generateCartesianVariants = function(pinyinMatrix) {
+		let results = [{ word: "", increments: [] }];
+		for (let i = 0; i < pinyinMatrix.length; i++) {
+			let charPinyins = Array.isArray(pinyinMatrix[i]) ? pinyinMatrix[i] : [pinyinMatrix[i]];
+			let uniquePinyins = [];
+			for (let p of charPinyins) {
+				if (typeof p === 'string' && p.length > 0 && !uniquePinyins.includes(p)) {
+					uniquePinyins.push(p);
+				}
+			}
+			if (uniquePinyins.length === 0) continue;
+
+			let nextResults = [];
+			for (let current of results) {
+				for (let py of uniquePinyins) {
+					nextResults.push({
+						word: current.word + py,
+						increments: [...current.increments, py.length]
+					});
+				}
+			}
+			// 限制变体上限防爆（最多 16 种组合变体）
+			results = nextResults.length > 16 ? nextResults.slice(0, 16) : nextResults;
+		}
+		return results;
+	};
+
 	global.generateSChineseVariants = function(chinese)
 	{
-		// Generate Pinyin using library.
-		let generatedPinyin = chinese in simplifiedChineseOverride ?
-			simplifiedChineseOverride[chinese] :
-			pinyin.pinyin (
+		// 1. 获取拼音矩阵（每个字对应包含 1 个或多个合法拼音的数组）
+		let pinyinMatrix = [];
+
+		if (chinese in simplifiedChineseOverride) {
+			pinyinMatrix = simplifiedChineseOverride[chinese];
+		} else {
+			let rawPinyin = pinyin.pinyin (
 				chinese,
 				{
 					style: pinyin.STYLE_NORMAL,
 					segment: "segmentit",
-					heteronym: chinese.length == 1 ? true : false
+					heteronym: false
 				}
-			)
+			);
 
-		// Re-format in Glyphica-styled struct.
-		let variants = chinese.length == 1 ?
-			generatedPinyin[0].reduce(
-				(result, char) => {
-					result.push({
-						word: char,
-						increments: [ char.length ]
-					})
-					return result
-				}, []) :
-			[generatedPinyin.reduce (
-				(result, char) => {
-					result.word += char[0]
-					result.increments.push(char[0].length)
-					return result
-				},
-				{ word: "", increments: []}
-			)]
-		
-		// Parse exceptions.
+			for (let i = 0; i < chinese.length; i++) {
+				let char = chinese[i];
+				let basePinyins = (rawPinyin[i] && Array.isArray(rawPinyin[i])) ? [...rawPinyin[i]] : [""];
+				if (char in tcmCharHeteronyms) {
+					let combined = [...tcmCharHeteronyms[char]];
+					basePinyins.forEach(p => {
+						if (!combined.includes(p)) combined.push(p);
+					});
+					pinyinMatrix.push(combined);
+				} else {
+					pinyinMatrix.push(basePinyins);
+				}
+			}
+		}
+
+		// 2. 笛卡尔积组合，生成所有合法的全拼变体（拼音双判容错）
+		let variants = generateCartesianVariants(pinyinMatrix);
+
+		// 3. 容错转换：'v' 与 'u' 互换，'ju'/'qu'/'xu'/'yu' 兼容
 		variants = variants.reduce((result, variant) => {
-			let differentTypings = [variant]
+			let differentTypings = [variant];
 
 			// Allow all "v"s to be typed with "u".
 			while (differentTypings[differentTypings.length - 1].word.includes("v"))
 			{
-				let current = differentTypings[differentTypings.length - 1]
-				differentTypings.push({ word: current.word.replace("v", "u"), increments: current.increments})
+				let current = differentTypings[differentTypings.length - 1];
+				differentTypings.push({ word: current.word.replace("v", "u"), increments: current.increments });
 			}
 			
 			// Allow "u"s in certain combinations to be typed with "v".
 			["ju", "qu", "xu", "yu"].forEach(exception => {
 				while (differentTypings[differentTypings.length - 1].word.includes(exception))
 				{
-					let current = differentTypings[differentTypings.length - 1]
-					differentTypings.push({ word: current.word.replace(exception, exception.replace("u", "v")), increments: current.increments })
+					let current = differentTypings[differentTypings.length - 1];
+					differentTypings.push({ word: current.word.replace(exception, exception.replace("u", "v")), increments: current.increments });
 				}
-			})
-			return result.concat(differentTypings)
-		}, [])
+			});
+			return result.concat(differentTypings);
+		}, []);
 
-		// Return all variants.
+		// 4. 双拼兼容（如果玩家开启了双拼）
 		return allowDoublePinyin != null ? 
-			[ ...variants, ...generateDoublePinyin(generatedPinyin, chinese.length == 1) ] :
-			variants
+			[ ...variants, ...generateDoublePinyin(pinyinMatrix, chinese.length == 1) ] :
+			variants;
 	}
 
 	global.getCypherString = function(length, currentWords, checkForPartialMatch = true)

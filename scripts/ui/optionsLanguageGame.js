@@ -6,7 +6,7 @@ export class OptionsLanguageGame extends OptionsLanguage
 	constructor(navigationMenu)
 	{
 		super(true, navigationMenu)
-		this.name.setText(localize("options_game_language"))
+		this.name.setText("选择背诵题库")
 	}
 
 	refresh()

@@ -30,10 +30,15 @@ export class LanguageSelect extends Node
 		return this
 	}
 
-	startIntro(gameOrUI, optionButton = null)
+	async startIntro(gameOrUI, optionButton = null)
 	{
 		// Populate language buttons.
 		this.gameOrUI = gameOrUI
+		if (gameOrUI && typeof global.loadExternalDictionary === 'function')
+		{
+			// 【仲景核心：词库免重启热重载】打开题库选择面板时，动态扫描 mods/ 挂载最新文件
+			await global.loadExternalDictionary()
+		}
 		this.populate()
 
 		// Start intro animation.

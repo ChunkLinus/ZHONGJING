@@ -23,7 +23,7 @@ import { isRussian, isUkrainian } from '../data/cyrillicQwertyConversion.js'
 	// Settings
 	global.isOozaru = Sphere.Engine.split(" ")[0] == "neoSphere" ? false : true
 	global.steamEnabled = false
-	global.wpmSimulator = 0
+	global.wpmSimulator = 0  //模拟打字速度
 	global.missionMode = true
 	global.visualTheme = "theme_light_mode"
 	global.spacesAndPunctuation = false
@@ -45,9 +45,10 @@ import { isRussian, isUkrainian } from '../data/cyrillicQwertyConversion.js'
 	// --- 【仲景模拟器：F1级火控配置中枢】 ---
 	global.spawnConfig = {
 		baseInterval: 60,       // 基准冷却（帧）。60帧 = 1秒1只
-		globalMultiplier: 5.0,  // 全局倍率总阀。0.5 = 两倍速爆兵
+		globalMultiplier: 1.0,  // 全局倍率总阀。默认 1.0 标准速率，支持 UI 滑块实时调控
 		maxConcurrent: 50       // 同屏物理绝对上限，防止内存溢出
 	};
+	global.pinyinAssistMode = "assist"; // "assist" 智能助记 / "exam" 纯闭卷模式
 
 	// Enums.
 	
@@ -157,6 +158,31 @@ import { isRussian, isUkrainian } from '../data/cyrillicQwertyConversion.js'
 	global.perfectInputRecord = 0
 	global.totalDamage = 0
 	global.coinsEarned = 0
+
+	// 错题本统计：记录本局所有的失误条文与突防条文
+	global.sessionMistakes = new Map()
+	global.recordSessionMistake = function(obj, type = "mistype") {
+		if (!obj || !obj.word) return
+		let originalText = obj.shanghanOriginal || ("{" + obj.word + "}")
+		let record = global.sessionMistakes.get(originalText)
+		if (!record) {
+			record = {
+				original: originalText,
+				word: obj.word,
+				question: obj.shanghanQuestion || "",
+				mistypes: 0,
+				breaches: 0,
+				lastTime: Date.now()
+			}
+			global.sessionMistakes.set(originalText, record)
+		}
+		if (type === "mistype") {
+			record.mistypes++
+		} else if (type === "breach") {
+			record.breaches++
+		}
+		record.lastTime = Date.now()
+	}
 
 	// Global upgrades.
 	global.serializedLoot = {}
@@ -418,6 +444,7 @@ import { isRussian, isUkrainian } from '../data/cyrillicQwertyConversion.js'
 		charactersCompleted = 0
 		totalMistypes = 0
 		perfectInputRecord = 0
+		sessionMistakes = new Map()
 
 		// Show Rich Presence Steam Friends.
 		if (steamEnabled)
@@ -554,6 +581,7 @@ import { isRussian, isUkrainian } from '../data/cyrillicQwertyConversion.js'
 		perfectInputRecord = 0
 		totalDamage = 0
 		coinsEarned = 0
+		sessionMistakes = new Map()
 
 		// Change UI.
 		ui.hud.show()

@@ -244,40 +244,165 @@ export const renderWord = function(obj, stalkerCoverWord)
 			)
 
 
-		// --- 【伤寒论核心干预：原生级视觉复刻与多行渲染】 ---
+		// --- 【阶段二·视觉与渲染重构：槽位动态翻字点亮 + 战术锁定聚焦框 + 实时拼音反馈】 ---
 		if (obj.shanghanQuestion && !stalkerCoverWord && !obj.cyphered) {
-			// 1. 窃取原版透明度与颜色算法 (原版未匹配的文字是 midGray 并非纯白)
+			let isLocked = (obj.numMatchingLetters > 0);
 			let opacity = obj.omenOpacity() * ui.inGameWordOpacity * obj.overlapOpacity;
-			let nativeColor = midGray.fadeTo(0.5 * opacity); 
 
-			// 2. 窃取原版“打字机浮现”动画逻辑
-			// 这会让经文在怪物刚刷出来时，像原版汉字一样逐字浮现，而不是生硬地突然贴在屏幕上
-			let renderedCount = Math.floor(obj.shanghanQuestion.length * obj.wordRegenPercentage);
-			let visibleQuestion = obj.shanghanQuestion.slice(0, renderedCount);
+			// 1. 动态槽位翻字机制 (Dynamic Cloze Reveal)
+			let targetWord = obj.word || "";
+			let targetLen = targetWord.length;
+			let matchedCount = Math.min(Math.floor(obj.numMatchingLetters || 0), targetLen);
 
-			// 3. 动态双行宽屏排版
+			// 组装实时槽位：已敲出的汉字逐个点亮翻开，未敲出部分保持为下划线
+			let revealedStr = targetWord.slice(0, matchedCount);
+			let blankStr = "_".repeat(Math.max(0, targetLen - matchedCount));
+			let liveSlot = "[" + revealedStr + blankStr + "]";
+
+			// 将实时动态槽位注入经文原句
+			let dynamicQuestion = obj.shanghanQuestion.replace("[____]", liveSlot);
+
+			// 2. 原版打字机平滑浮现逻辑
+			let renderedCount = Math.floor(dynamicQuestion.length * obj.wordRegenPercentage);
+			let visibleQuestion = dynamicQuestion.slice(0, renderedCount);
+
+			// 3. 动态宽屏双行排版算法（优先寻找中文句读断句）
 			let lines = [];
-			// 设定阈值：如果当前显示的字数在 16 字以内，保持单行直出；超过则从中间切断，最多两行。
 			if (visibleQuestion.length <= 16) {
 				lines.push(visibleQuestion);
 			} else {
-				let splitPoint = Math.ceil(visibleQuestion.length / 2);
+				let mid = Math.ceil(visibleQuestion.length / 2);
+				let commaIdx = -1;
+				for (let offset = 0; offset <= 4; offset++) {
+					if ("，、；。".includes(visibleQuestion[mid + offset])) { commaIdx = mid + offset + 1; break; }
+					if ("，、；。".includes(visibleQuestion[mid - offset])) { commaIdx = mid - offset + 1; break; }
+				}
+				let splitPoint = commaIdx > 0 ? commaIdx : mid;
 				lines.push(visibleQuestion.slice(0, splitPoint));
 				lines.push(visibleQuestion.slice(splitPoint));
 			}
 
-			// 4. 坐标锚定：直接接管原本汉字所在的 Y 轴位置，向下展开
-			let currentY = pos.y - obj.wordOffset - font.height;
-
-			// 执行原生级绘制
+			// 4. 计算文本总包围盒与锚点
+			let maxLineWidth = 0;
 			for (let l of lines) {
-				font.drawText(
+				let lw = font.widthOf(l);
+				if (lw > maxLineWidth) maxLineWidth = lw;
+			}
+			let currentY = pos.y - obj.wordOffset - font.height;
+			let totalHeight = lines.length * font.height;
+
+			// 5. 战术聚焦准星框与底衬（仅在被锁定敲击时激活高亮）
+			if (isLocked) {
+				let padX = scalePix(10);
+				let padY = scalePix(4);
+				let boxX1 = pos.x - maxLineWidth / 2 - padX;
+				let boxX2 = pos.x + maxLineWidth / 2 + padX;
+				let boxY1 = currentY - padY;
+				let boxY2 = currentY + totalHeight + padY;
+
+				// 绘制半透明深色战术底衬，增强复杂怪潮下的文字辨识度
+				PrimNative.drawFilledRectangle(
 					Surface.Screen,
-					pos.x - font.widthOf(l) / 2,
-					currentY,
-					l,
-					nativeColor
+					boxX1, boxY1, boxX2, boxY2,
+					darkGray.fadeTo(0.75 * opacity)
 				);
+
+				// 绘制高亮锁定边框（暖金配色）
+				PrimNative.drawRectangle(
+					Surface.Screen,
+					boxX1, boxY1, boxX2, boxY2,
+					scalePix(2),
+					paleYellow.fadeTo(0.9 * opacity)
+				);
+
+				// 头顶悬浮拼音反馈总线：大考闭卷模式下彻底隐藏，其余模式在锁定时高亮注音音节
+				if (obj.displayedPinyin && global.pinyinAssistMode !== "exam") {
+					let pyY = boxY1 - typingFontMedium.height - scalePix(3);
+					let pyW = typingFontMedium.widthOf(obj.displayedPinyin);
+					typingFontMedium.drawText(
+						Surface.Screen,
+						pos.x - pyW / 2,
+						pyY,
+						obj.displayedPinyin,
+						paleYellow.fadeTo(opacity)
+					);
+				}
+			} else {
+				// 未锁定状态：仅在智能助记模式(assist)下且接近防线(<220px)时淡入辅助拼音；半闭卷与纯闭卷下绝不提前剧透
+				let distToCenter = (pos && screenCenter) ? distanceBetween(pos, screenCenter) : 999;
+				if (global.pinyinAssistMode === "assist" && obj.displayedPinyin && distToCenter < scalePix(220)) {
+					let assistFactor = Math.min(0.6, (scalePix(220) - distToCenter) / scalePix(120));
+					let pyY = currentY - typingFontMedium.height - scalePix(4);
+					let pyW = typingFontMedium.widthOf(obj.displayedPinyin);
+					typingFontMedium.drawText(
+						Surface.Screen,
+						pos.x - pyW / 2,
+						pyY,
+						obj.displayedPinyin,
+						midGray.fadeTo(assistFactor * opacity)
+					);
+				}
+			}
+
+			// 6. 配色与槽位分段渲染（Segmented Rendering）
+			let baseTextColor = isLocked ? paleYellow.fadeTo(0.85 * opacity) : midGray.fadeTo(0.5 * opacity);
+			let highlightCharColor = paleYellow.fadeTo(1.0 * opacity); // 已翻开汉字：高亮纯暖金
+			let dimBlankColor = midGray.fadeTo(0.35 * opacity);        // 未翻开下划线：浅暗灰
+			let bracketColor = isLocked ? paleYellow.fadeTo(opacity) : midGray.fadeTo(0.7 * opacity);
+
+			for (let l of lines) {
+				let lineStartX = pos.x - font.widthOf(l) / 2;
+				let openIdx = l.indexOf("[");
+				let closeIdx = l.indexOf("]");
+
+				// 若当前行不包含完整槽位括号，直接单色绘制
+				if (openIdx === -1 || closeIdx === -1 || closeIdx < openIdx) {
+					font.drawText(Surface.Screen, lineStartX, currentY, l, baseTextColor);
+				} else {
+					// 包含槽位：分段绘制（前文 + [ + 已翻字 + 下划线 + ] + 后文）
+					let beforeText = l.slice(0, openIdx);
+					let insideText = l.slice(openIdx + 1, closeIdx);
+					let afterText = l.slice(closeIdx + 1);
+
+					let curX = lineStartX;
+
+					// 前文
+					if (beforeText.length > 0) {
+						font.drawText(Surface.Screen, curX, currentY, beforeText, baseTextColor);
+						curX += font.widthOf(beforeText);
+					}
+
+					// 左括号
+					font.drawText(Surface.Screen, curX, currentY, "[", bracketColor);
+					curX += font.widthOf("[");
+
+					// 槽位内部：分离已翻字与下划线
+					let firstUnderscore = insideText.indexOf("_");
+					if (firstUnderscore === -1) {
+						font.drawText(Surface.Screen, curX, currentY, insideText, highlightCharColor);
+						curX += font.widthOf(insideText);
+					} else {
+						let matchedChars = insideText.slice(0, firstUnderscore);
+						let blanks = insideText.slice(firstUnderscore);
+						if (matchedChars.length > 0) {
+							font.drawText(Surface.Screen, curX, currentY, matchedChars, highlightCharColor);
+							curX += font.widthOf(matchedChars);
+						}
+						if (blanks.length > 0) {
+							font.drawText(Surface.Screen, curX, currentY, blanks, dimBlankColor);
+							curX += font.widthOf(blanks);
+						}
+					}
+
+					// 右括号
+					font.drawText(Surface.Screen, curX, currentY, "]", bracketColor);
+					curX += font.widthOf("]");
+
+					// 后文
+					if (afterText.length > 0) {
+						font.drawText(Surface.Screen, curX, currentY, afterText, baseTextColor);
+					}
+				}
 				currentY += font.height;
 			}
 		} else {
@@ -829,6 +954,12 @@ export class Enemy extends Entity
 		let position = this.getPosition()
 		for (let i = 0; i < 10; i++)
 			factory.spawn(Debris, position.x, position.y)
+	}
+
+	recordBreach()
+	{
+		if (typeof global.recordSessionMistake === 'function')
+			global.recordSessionMistake(this, "breach")
 	}
 
 	destroy()
